@@ -50,6 +50,25 @@
         .zoom-controls button:hover {
             color: #ffc107;
         }
+        /* Bölümleri net ayırmak için estetik kart stilleri */
+        .section-card {
+            background-color: #ffffff;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+        .section-title {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #198754;
+            border-bottom: 2px solid #198754;
+            padding-bottom: 6px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
         /* Mobil uyumluluk için ek esneklik */
         @media (max-width: 768px) {
             .container {
@@ -128,41 +147,48 @@
                                 <div class="text-center mt-2 text-muted small">Görseli büyüttükten sonra mouse ile basıp sürükleyerek gezinebilirsiniz.</div>
                             </div>
 
-                            <!-- Patojen Seçim Alanı -->
+                            <!-- Patojen Seçim Alanı (Estetik Kart İçinde) -->
                             <div class="col-12 col-md-6 d-flex flex-column">
-                                <h6 class="text-muted mb-2">Aktif Uzman: <strong id="aktifUzmanAdi" class="text-success"></strong></h6>
-                                <label class="form-label fw-bold text-success mb-1">Patojen / Zararlı / Durum Seçimi:</label>
-                                
-                                <div class="border rounded p-2 bg-white flex-grow-1" style="height: 350px; max-height: 350px; overflow-y: auto;" id="patojenListesiDiv">
+                                <div class="section-card flex-grow-1 d-flex flex-column">
+                                    <h6 class="text-muted mb-2">Aktif Uzman: <strong id="aktifUzmanAdi" class="text-success"></strong></h6>
                                     
-                                    <div class="form-check mb-1"><input class="form-check-input patojen-radio" type="radio" name="patojenSecim" id="p1" value="Karaleke / Karakutak (Venturia pirina)" onchange="hastalikDegisti()"><label class="form-check-label" for="p1">🦠 Karaleke / Karakutak (<i>Venturia pirina</i>)</label></div>
-                                    <div class="form-check mb-1"><input class="form-check-input patojen-radio" type="radio" name="patojenSecim" id="p2" value="Psyllas (Cacopsylla pyri) / Psila" onchange="hastalikDegisti()"><label class="form-check-label" for="p2">🐛 Psyllas (<i>Cacopsylla pyri</i>) / Psila</label></div>
-                                    <div class="form-check mb-1"><input class="form-check-input patojen-radio" type="radio" name="patojenSecim" id="p3" value="Ateş Yanıklığı (Erwinia amylovora)" onchange="hastalikDegisti()"><label class="form-check-label" for="p3">🦠 Ateş Yanıklığı (<i>Erwinia amylovora</i>)</label></div>
-                                    <div class="form-check mb-1"><input class="form-check-input patojen-radio" type="radio" name="patojenSecim" id="p4" value="Şeftali Yaprak Kıvırcıklığı (Taphrina deformans)" onchange="hastalikDegisti()"><label class="form-check-label" for="p4">🦠 Şeftali Yaprak Kıvırcıklığı (<i>Taphrina deformans</i>)</label></div>
-                                    <div class="form-check mb-1"><input class="form-check-input patojen-radio" type="radio" name="patojenSecim" id="p5" value="Yaprak Biti (Myzus persicae)" onchange="hastalikDegisti()"><label class="form-check-label" for="p5">🐛 Yaprak Biti (<i>Myzus persicae</i>)</label></div>
-                                    <div class="form-check mb-1"><input class="form-check-input patojen-radio" type="radio" name="patojenSecim" id="p6" value="Monilya (Şeftali - Ayva - Elma - Kayısı vb.) (Monilinia laxa)" onchange="hastalikDegisti()"><label class="form-check-label" for="p6">🦠 Monilya (Şeftali - Ayva - Elma - Kayısı vb.) (<i>Monilinia laxa</i>)</label></div>
-                                    <div class="form-check mb-1"><input class="form-check-input patojen-radio" type="radio" name="patojenSecim" id="p7" value="İç Kurdu (Cydia pomonella)" onchange="hastalikDegisti()"><label class="form-check-label" for="p7">🐛 İç Kurdu (<i>Cydia pomonella</i>)</label></div>
-                                    <div class="form-check mb-1"><input class="form-check-input patojen-radio" type="radio" name="patojenSecim" id="p8" value="Kırmızı Örümcek (İki noktalı kırmızı örümcek) (Tetranychus urticae)" onchange="hastalikDegisti()"><label class="form-check-label" for="p8">🐛 Kırmızı Örümcek (İki noktalı kırmızı örümcek) (<i>Tetranychus urticae</i>)</label></div>
-                                    <div class="form-check mb-1"><input class="form-check-input patojen-radio" type="radio" name="patojenSecim" id="p9" value="Yalancı Mildiyö (Pseudoperonospora cubensis)" onchange="hastalikDegisti()"><label class="form-check-label" for="p9">🦠 Yalancı Mildiyö (<i>Pseudoperonospora cubensis</i>)</label></div>
-                                    <div class="form-check mb-1"><input class="form-check-input patojen-radio" type="radio" name="patojenSecim" id="p10" value="Sümüklü Böcekler ve Salyangozlar (Deroceras reticulatum)" onchange="hastalikDegisti()"><label class="form-check-label" for="p10">🐛 Sümüklü Böcekler ve Salyangozlar (<i>Deroceras reticulatum</i>)</label></div>
-                                    <div class="form-check mb-1"><input class="form-check-input patojen-radio" type="radio" name="patojenSecim" id="p11" value="Sclerotinia Beyaz Çürüklüğü / Dip Çürüklüğü (Sclerotinia sclerotiorum)" onchange="hastalikDegisti()"><label class="form-check-label" for="p11">🦠 Sclerotinia Beyaz Çürüklüğü / Dip Çürüklüğü (<i>Sclerotinia sclerotiorum</i>)</label></div>
-                                    <div class="form-check mb-1"><input class="form-check-input patojen-radio" type="radio" name="patojenSecim" id="p12" value="Marul Mildiyösü (Bremia lactucae)" onchange="hastalikDegisti()"><label class="form-check-label" for="p12">🦠 Marul Mildiyösü (<i>Bremia lactucae</i>)</label></div>
-                                    <div class="form-check mb-1"><input class="form-check-input patojen-radio" type="radio" name="patojenSecim" id="p13" value="Sağlıklı Numune örneği" onchange="hastalikDegisti()"><label class="form-check-label text-success fw-bold" for="p13">🍃 Sağlıklı Numune örneği</label></div>
-                                    
-                                    <!-- Diğeri ve Metin Kutusu -->
-                                    <div class="form-check mb-0 mt-2 d-flex align-items-center">
-                                        <input class="form-check-input patojen-radio me-2" type="radio" name="patojenSecim" id="p14" value="Diğeri" onchange="hastalikDegisti()">
-                                        <label class="form-check-label text-danger fw-bold me-2" for="p14">⚙️ Diğeri:</label>
-                                        <input type="text" id="digerMetinInput" class="form-control form-control-sm" placeholder="Diğer hastalık/zararlı yazınız..." disabled oninput="digerYazildi()">
+                                    <div class="section-title">
+                                        <span>🦠</span> 1. Adım: Patojen / Zararlı / Durum Seçimi
                                     </div>
+                                    
+                                    <div class="border rounded p-2 bg-light flex-grow-1" style="height: 310px; max-height: 310px; overflow-y: auto;" id="patojenListesiDiv">
+                                        
+                                        <div class="form-check mb-1"><input class="form-check-input patojen-radio" type="radio" name="patojenSecim" id="p1" value="Karaleke / Karakutak (Venturia pirina)" onchange="hastalikDegisti()"><label class="form-check-label" for="p1">🦠 Karaleke / Karakutak (<i>Venturia pirina</i>)</label></div>
+                                        <div class="form-check mb-1"><input class="form-check-input patojen-radio" type="radio" name="patojenSecim" id="p2" value="Psyllas (Cacopsylla pyri) / Psila" onchange="hastalikDegisti()"><label class="form-check-label" for="p2">🐛 Psyllas (<i>Cacopsylla pyri</i>) / Psila</label></div>
+                                        <div class="form-check mb-1"><input class="form-check-input patojen-radio" type="radio" name="patojenSecim" id="p3" value="Ateş Yanıklığı (Erwinia amylovora)" onchange="hastalikDegisti()"><label class="form-check-label" for="p3">🦠 Ateş Yanıklığı (<i>Erwinia amylovora</i>)</label></div>
+                                        <div class="form-check mb-1"><input class="form-check-input patojen-radio" type="radio" name="patojenSecim" id="p4" value="Şeftali Yaprak Kıvırcıklığı (Taphrina deformans)" onchange="hastalikDegisti()"><label class="form-check-label" for="p4">🦠 Şeftali Yaprak Kıvırcıklığı (<i>Taphrina deformans</i>)</label></div>
+                                        <div class="form-check mb-1"><input class="form-check-input patojen-radio" type="radio" name="patojenSecim" id="p5" value="Yaprak Biti (Myzus persicae)" onchange="hastalikDegisti()"><label class="form-check-label" for="p5">🐛 Yaprak Biti (<i>Myzus persicae</i>)</label></div>
+                                        <div class="form-check mb-1"><input class="form-check-input patojen-radio" type="radio" name="patojenSecim" id="p6" value="Monilya (Şeftali - Ayva - Elma - Kayısı vb.) (Monilinia laxa)" onchange="hastalikDegisti()"><label class="form-check-label" for="p6">🦠 Monilya (Şeftali - Ayva - Elma - Kayısı vb.) (<i>Monilinia laxa</i>)</label></div>
+                                        <div class="form-check mb-1"><input class="form-check-input patojen-radio" type="radio" name="patojenSecim" id="p7" value="İç Kurdu (Cydia pomonella)" onchange="hastalikDegisti()"><label class="form-check-label" for="p7">🐛 İç Kurdu (<i>Cydia pomonella</i>)</label></div>
+                                        <div class="form-check mb-1"><input class="form-check-input patojen-radio" type="radio" name="patojenSecim" id="p8" value="Kırmızı Örümcek (İki noktalı kırmızı örümcek) (Tetranychus urticae)" onchange="hastalikDegisti()"><label class="form-check-label" for="p8">🐛 Kırmızı Örümcek (İki noktalı kırmızı örümcek) (<i>Tetranychus urticae</i>)</label></div>
+                                        <div class="form-check mb-1"><input class="form-check-input patojen-radio" type="radio" name="patojenSecim" id="p9" value="Yalancı Mildiyö (Pseudoperonospora cubensis)" onchange="hastalikDegisti()"><label class="form-check-label" for="p9">🦠 Yalancı Mildiyö (<i>Pseudoperonospora cubensis</i>)</label></div>
+                                        <div class="form-check mb-1"><input class="form-check-input patojen-radio" type="radio" name="patojenSecim" id="p10" value="Sümüklü Böcekler ve Salyangozlar (Deroceras reticulatum)" onchange="hastalikDegisti()"><label class="form-check-label" for="p10">🐛 Sümüklü Böcekler ve Salyangozlar (<i>Deroceras reticulatum</i>)</label></div>
+                                        <div class="form-check mb-1"><input class="form-check-input patojen-radio" type="radio" name="patojenSecim" id="p11" value="Sclerotinia Beyaz Çürüklüğü / Dip Çürüklüğü (Sclerotinia sclerotiorum)" onchange="hastalikDegisti()"><label class="form-check-label" for="p11">🦠 Sclerotinia Beyaz Çürüklüğü / Dip Çürüklüğü (<i>Sclerotinia sclerotiorum</i>)</label></div>
+                                        <div class="form-check mb-1"><input class="form-check-input patojen-radio" type="radio" name="patojenSecim" id="p12" value="Marul Mildiyösü (Bremia lactucae)" onchange="hastalikDegisti()"><label class="form-check-label" for="p12">🦠 Marul Mildiyösü (<i>Bremia lactucae</i>)</label></div>
+                                        <div class="form-check mb-1"><input class="form-check-input patojen-radio" type="radio" name="patojenSecim" id="p13" value="Sağlıklı Numune örneği" onchange="hastalikDegisti()"><label class="form-check-label text-success fw-bold" for="p13">🍃 Sağlıklı Numune örneği</label></div>
+                                        
+                                        <!-- Diğeri ve Metin Kutusu -->
+                                        <div class="form-check mb-0 mt-2 d-flex align-items-center">
+                                            <input class="form-check-input patojen-radio me-2" type="radio" name="patojenSecim" id="p14" value="Diğeri" onchange="hastalikDegisti()">
+                                            <label class="form-check-label text-danger fw-bold me-2" for="p14">⚙️ Diğeri:</label>
+                                            <input type="text" id="digerMetinInput" class="form-control form-control-sm" placeholder="Diğer hastalık/zararlı yazınız..." disabled oninput="digerYazildi()">
+                                        </div>
 
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- İlaç Önerisi Alanı -->
-                        <div class="mb-4">
-                            <label class="form-label fw-bold text-success">Piyasada Bulunan İlaç / Etken Madde Önerisi (Bursa/Gürsu Bölgesi): <span id="ilacZorunluYildiz" class="text-danger">*</span></label>
+                        <!-- İlaç Önerisi Alanı (Estetik ve Net Ayrılmış Kart İçinde) -->
+                        <div class="section-card mb-4">
+                            <div class="section-title">
+                                <span>🧪</span> 2. Adım: Piyasada Bulunan İlaç / Etken Madde Önerisi (Bursa/Gürsu Bölgesi) <span id="ilacZorunluYildiz" class="text-danger">*</span>
+                            </div>
                             <select id="ilacSelect" class="form-select mb-2" onchange="ilacSecimDegisti()">
                                 <option value="">-- Bölgede En Çok Tercih Edilen İlaç / Etken Madde Seçiniz --</option>
                                 <option value="Difenoconazole 250 g/l">Difenoconazole 250 g/l</option>
@@ -405,6 +431,9 @@
             } else {
                 document.getElementById("sonrakiBtn").innerText = "Sonraki Görsel";
             }
+
+            // Yeni görsel yüklendiğinde kullanıcının ekranını en üste (görsele) odakla
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
         function denemeUzantisiYukle() {
