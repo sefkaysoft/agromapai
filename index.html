@@ -402,14 +402,17 @@
             document.getElementById("aktifUzmanAdi").innerText = secilenUzman;
 
             let baslaBtn = document.getElementById("baslaBtn");
-            baslaBtn.innerText = "Yükleniyor ve Kontrol Ediliyor...";
+            baslaBtn.innerHTML = `
+                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                Numune görselleri yükleniyor, bu işlem biraz uzun sürebilir lütfen bekleyin...
+            `;
             baslaBtn.disabled = true;
 
             // Önce toplam görsel sayısını bul
             toplamGorselSayisiniBul(() => {
                 if (toplamGorselSayisi === 0) {
                     alert("Dikkat: 'img' klasöründe hiç görsel bulunamadı!");
-                    baslaBtn.innerText = "Oylamaya Başla";
+                    baslaBtn.innerHTML = "Oylamaya Başla";
                     baslaBtn.disabled = false;
                     return;
                 }
