@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgroMap AI - Yapay Zekâ Doğruluk ve Konsensüs Sonuç Yönetimi</title>
+    <!-- Bootstrap 5 CSS CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .image-container {
+            width: 50px;
+            height: 50px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            border: 1px solid #dee2e6;
+            cursor: pointer;
+        }
+        .thumb-img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            transition: transform 0.2s;
+        }
+        .thumb-img:hover {
+            transform: scale(1.15);
+        }
+        .ai-trial-select, .ai-trial-input {
+            font-size: 0.75rem;
+            padding: 3px 4px;
+        }
+        @media print {
+            @page { size: A4 landscape; margin: 10mm; }
+            body { background: white !important; font-size: 7.5pt !important; color: #000 !important; }
+            .no-print { display: none !important; }
+            .card { border: none !important; box-shadow: none !important; }
+            .card-header { background-color: #198754 !important; color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .table { width: 100% !important; border-collapse: collapse !important; font-size: 7pt !important; }
+            th, td { padding: 3px !important; vertical-align: middle !important; }
+            .image-container { width: 35px !important; height: 35px !important; }
+        }
+    </style>
+</head>
+<body class="bg-light">
+
+    <div class="container-fluid py-4 px-3" id="pdfIcerikAlani">
+        <div class="row mb-3">
+            <div class="col-12">
+                <div class="card shadow bg-success text-white">
+                    <div class="card-body p-3 p-md-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+                        <div>
+                            <h3 class="mb-1 text-white">📊 AgroMap AI - Yapay Zekâ Konsensüs ve 5'li Deneme Doğruluk Paneli</h3>
+                            <p class="mb-0 text-white small">Uzman konsensüsü sağlanan numuneler üzerinde 5'li YZ test denemeleri (Otomatik Eşleşen Seçim Menüleri).</p>
+                        </div>
+                        <div class="d-flex gap-2 no-print">
+                            <button onclick="verileriCek()" class="btn btn-light text-success fw-bold px-3 btn-sm">🔄 Verileri Yenile</button>
+                            <button onclick="googleTabloyaAktar()" class="btn btn-warning text-dark fw-bold px-3 btn-sm"☁️ Google Tabloya Gönder</button>
+                            <button onclick="window.print()" class="btn btn-dark fw-bold px-3 btn-sm">📥 Yazdır / PDF İndir</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- İSTATİSTİK KARTLARI -->
+        <div class="row g-2 mb-3 text-center">
+            <div class="col-md-3 col-6">
+                <div class="card shadow-sm border-0 bg-white p-2">
+                    <h6 class="text-muted mb-1" style="font-size: 0.8rem;">Toplam Konsensüs Numunesi</h6>
+                    <h4 id="statKonsensusToplam" class="fw-bold text-primary mb-0">0</h4>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="card shadow-sm border-0 bg-white p-2">
+                    <h6 class="text-muted mb-1" style="font-size: 0.8rem;">Test Edilen Numune Sayısı</h6>
+                    <h4 id="statTestEdilen" class="fw-bold text-success mb-0">0</h4>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="card shadow-sm border-0 bg-white p-2">
+                    <h6 class="text-muted mb-1" style="font-size: 0.8rem;">Ortalama Yapay Zekâ Başarısı</h6>
+                    <h4 id="statOrtalamaBasari" class="fw-bold text-warning mb-0">%0</h4>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="card shadow-sm border-0 bg-white p-2">
+                    <h6 class="text-muted mb-1" style="font-size: 0.8rem;">Toplam YZ Denemesi</h6>
+                    <h4 id="statToplamDeneme" class="fw-bold text-info mb-0">0</h4>
+                </div>
+            </div>
+        </div>
+
+        <!-- TABLO ALANI -->
+        <div class="card shadow">
+            <div class="card-header bg-success py-2 text-white">
+                <h6 class="mb-0 fw-bold text-white">📋 Konsensüs Sağlayan Numuneler ve Açılır Menülü 5'li YZ Deneme Matrisi</h6>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover align-middle mb-0" style="font-size: 0.8rem;">
+                        <thead class="table-success text-center align-middle">
+                            <tr>
+                                <th style="width: 50px;">Görsel</th>
+                                <th style="width: 60px;">Numune</th>
+                                <th style="width: 130px;">Uzman Kararı</th>
+                                <th style="width: 110px;">Uzman İlacı</th>
+                                <!-- 5 Deneme Sütunları -->
+                                <th style="background-color: #146c43 !important;">Deneme 1 (Teşhis / İlaç)</th>
+                                <th style="background-color: #146c43 !important;">Deneme 2 (Teşhis / İlaç)</th>
+                                <th style="background-color: #146c43 !important;">Deneme 3 (Teşhis / İlaç)</th>
+                                <th style="background-color: #146c43 !important;">Deneme 4 (Teşhis / İlaç)</th>
+                                <th style="background-color: #146c43 !important;">Deneme 5 (Teşhis / İlaç)</th>
+                                <th style="width: 80px; background-color: #0f5132 !important;">Doğruluk</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabloGovdesi">
+                            <tr><td colspan="10" class="text-center py-4 text-muted">Konsensüs sağlayan veriler yükleniyor...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- GÖRSEL ÖNİZLEME MODALI -->
+    <div class="modal fade" id="gorselModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content text-center p-3">
+                <h5 id="modalBaslik" class="fw-bold text-success mb-3"></h5>
+                <img id="modalBuyukImg" src="" class="img-fluid rounded shadow" alt="Büyük Görsel">
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        const konsensusScriptURL = "https://script.google.com/macros/s/AKfycbwUZ9N5uRyt5y6_klBlGZGwhxupNNS7N4ZqXRZPEKXS00Vh1Tg5Oo3IhwpLcUQHrfA76Q/exec";
+        const yeniTabloScriptURL = "https://script.google.com/macros/s/AKfycbyFrbXPXaXRIzWX-3CO3z0T48S1fcM9Xj1lEjBupvSprakUdLj8M81BWtsgXFnI5k0k/exec"; 
+        
+        const olasiUzantilar = [".jpg", ".jpeg", ".png", ".webp", ".avif", ".JPG", ".JPEG", ".PNG", ".WEBP", ".AVIF"];
+
+        // Tüm hastalık ve ilaç seçenekleri (Oylama paneli ile birebir uyumlu)
+        const patojenListesiSecenekleri = [
+            "Karaleke / Karakutak (Venturia pirina)",
+            "Psyllas (Cacopsylla pyri) / Psila",
+            "Ateş Yanıklığı (Erwinia amylovora)",
+            "Şeftali Yaprak Kıvırcıklığı (Taphrina deformans)",
+            "Yaprak Biti (Myzus persicae)",
+            "Monilya (Şeftali - Ayva - Elma - Kayısı vb.) (Monilinia laxa)",
+            "İç Kurdu (Cydia pomonella)",
+            "Kırmızı Örümcek (İki noktalı kırmızı örümcek) (Tetranychus urticae)",
+            "Yalancı Mildiyö (Pseudoperonospora cubensis)",
+            "Sümüklü Böcekler ve Salyangozlar (Deroceras reticulatum)",
+            "Sclerotinia Beyaz Çürüklüğü / Dip Çürüklüğü (Sclerotinia sclerotiorum)",
+            "Marul Mildiyösü (Bremia lactucae)",
+            "Külleme Hastalığı (Powdery Mildew)",
+            "Kurşini Küf (Botrytis Cinerea)",
+            "Memeli Pası (Gynosporangium Sabinae)",
+            "Sağlıklı Numune örneği"
+        ];
+
+        const ilacListesiSecenekleri = [
+            "Difenoconazole 250 g/l",
+            "Captan %80 WDG",
+            "Dodine %65 WP",
+            "Abamectin 18 g/l",
+            "Acetamiprid %20 SP",
+            "Spirodiclofen 240 g/l",
+            "Bakır Hidroksit (Copper Hydroxide)",
+            "Fosetyl-Al %80 WP",
+            "Kasugamycin + Copper",
+            "Dithianon %70 WG",
+            "Flonicamid %50 WG",
+            "Cyprodinil + Fludioxonil",
+            "Boscalid + Pyraclostrobin",
+            "Chlorantraniliprole 200 g/l",
+            "Emamectin Benzoate 50 g/kg",
+            "Bifenazate 240 g/l",
+            "Cymoxanil + Mancozeb",
+            "Metalaxyl-M + Mancozeb",
+            "Metaldehyde %5 Yem",
+            "Propamocarb hydrochloride",
+            "Yok (Sağlıklı Numune)"
+        ];
+
+        let konsensusVeriler = [];
+        let aiDenemeVerileri = JSON.parse(localStorage.getItem("agromap_ai_denemeler_select") || "{}");
+
+        document.addEventListener("DOMContentLoaded", () => {
+            verileriCek();
+        });
+
+        function verileriCek() {
+            let tbody = document.getElementById("tabloGovdesi");
+            tbody.innerHTML = `<tr><td colspan="10" class="text-center py-4 text-muted">Google Sheets'ten veriler alınıyor...</td></tr>`;
+
+            fetch(konsensusScriptURL)
+                .then(response => response.json())
+                .then(rows => {
+                    analizEtVeKonsensusFiltrele(rows);
+                })
+                .catch(error => {
+                    console.error("Veri çekme hatası:", error);
+                    tbody.innerHTML = `<tr><td colspan="10" class="text-center py-4 text-danger">Veriler çekilirken hata oluştu. Apps Script GET bağlantısını kontrol edin.</td></tr>`;
+                });
+        }
+
+        function analizEtVeKonsensusFiltrele(rows) {
+            let numuneGruplari = {};
+
+            rows.forEach(row => {
+                let id = row.gorselId || row.GorselId || row['Görsel ID'] || row['GörselId'] || row.id || "1";
+                let uzman = row.uzmanAdi || row.UzmanAdi || row['Uzman Adı'] || row['UzmanAdi'] || "Anonim";
+                let patojen = row.patojen || row.Patojen || row['Seçilen Patojen'] || row['Patojen'] || "Belirtilmemiş";
+                let ilac = row.ilacOnerisi || row.IlacOnerisi || row['İlaç ve Etken Madde Önerisi'] || row['İlaç Önerisi'] || "-";
+
+                id = String(id).trim();
+
+                if (!numuneGruplari[id]) {
+                    numuneGruplari[id] = { numuneNo: id, yanitlar: [] };
+                }
+
+                let mevcutIndex = numuneGruplari[id].yanitlar.findIndex(y => y.uzman === uzman);
+                if (mevcutIndex >= 0) {
+                    numuneGruplari[id].yanitlar[mevcutIndex] = { uzman: uzman, patojen: patojen, ilac: ilac };
+                } else {
+                    numuneGruplari[id].yanitlar.push({ uzman: uzman, patojen: patojen, ilac: ilac });
+                }
+            });
+
+            konsensusVeriler = [];
+            let grupKeys = Object.keys(numuneGruplari);
+            let bekleyenSayi = grupKeys.length;
+
+            if (bekleyenSayi === 0) {
+                tabloyuCiz([]);
+                istatistikGuncelle();
+                return;
+            }
+
+            grupKeys.forEach(id => {
+                let grup = numuneGruplari[id];
+                let toplamOy = grup.yanitlar.length;
+
+                let patojenSayilari = {};
+                let ilacSayilari = {};
+
+                grup.yanitlar.forEach(y => {
+                    patojenSayilari[y.patojen] = (patojenSayilari[y.patojen] || 0) + 1;
+                    ilacSayilari[y.ilac] = (ilacSayilari[y.ilac] || 0) + 1;
+                });
+
+                let maxPatojenOy = 0, kazananPatojen = "-";
+                for (let pat in patojenSayilari) {
+                    if (patojenSayilari[pat] > maxPatojenOy) {
+                        maxPatojenOy = patojenSayilari[pat];
+                        kazananPatojen = pat;
+                    }
+                }
+
+                let maxIlacOy = 0, kazananIlac = "-";
+                for (let ilc in ilacSayilari) {
+                    if (ilacSayilari[ilc] > maxIlacOy) {
+                        maxIlacOy = ilacSayilari[ilc];
+                        kazananIlac = ilc;
+                    }
+                }
+
+                let patojenOrani = toplamOy > 0 ? Math.round((maxPatojenOy / toplamOy) * 100) : 0;
+                let konsensusOlustu = (toplamOy >= 4 && patojenOrani >= 80);
+
+                if (konsensusOlustu) {
+                    bulGorselUzantisi(id, (bulunanYol) => {
+                        konsensusVeriler.push({
+                            numuneNo: grup.numuneNo,
+                            gorselYolu: bulunanYol,
+                            uzmanSayisi: toplamOy,
+                            konsensusOrani: patojenOrani,
+                            konsensusKarar: kazananPatojen,
+                            konsensusIlac: kazananIlac
+                        });
+
+                        bekleyenSayi--;
+                        if (bekleyenSayi === 0) {
+                            bitirVeriHazirlik();
+                        }
+                    });
+                } else {
+                    bekleyenSayi--;
+                    if (bekleyenSayi === 0) {
+                        bitirVeriHazirlik();
+                    }
+                }
+            });
+        }
+
+        function bitirVeriHazirlik() {
+            konsensusVeriler.sort((a, b) => (parseInt(a.numuneNo) || 0) - (parseInt(b.numuneNo) || 0));
+            tabloyuCiz(konsensusVeriler);
+            istatistikGuncelle();
+        }
+
+        function bulGorselUzantisi(numuneId, callback) {
+            let idx = 0;
+            function dene() {
+                if (idx >= olasiUzantilar.length) {
+                    callback(`img/${numuneId}.jpg`);
+                    return;
+                }
+                let yol = `img/${numuneId}${olasiUzantilar[idx]}`;
+                let testImg = new Image();
+                testImg.onload = () => callback(yol);
+                testImg.onerror = () => { idx++; dene(); };
+                testImg.src = yol;
+            }
+            dene();
+        }
+
+        function tabloyuCiz(veriListesi) {
+            let tbody = document.getElementById("tabloGovdesi");
+            tbody.innerHTML = "";
+
+            if (veriListesi.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="10" class="text-center py-4 text-muted">Henüz konsensüs sağlayan (%80 ve üzeri) numune bulunamadı.</td></tr>`;
+                return;
+            }
+
+            veriListesi.forEach((item) => {
+                let formatliNumara = String(item.numuneNo).padStart(3, '0');
+                let savedTrials = aiDenemeVerileri[item.numuneNo] || [
+                    { teshis: "", ilac: "" },
+                    { teshis: "", ilac: "" },
+                    { teshis: "", ilac: "" },
+                    { teshis: "", ilac: "" },
+                    { teshis: "", ilac: "" }
+                ];
+
+                let tr = document.createElement("tr");
+                let trialInputsHTML = "";
+                let dogruSayisi = 0;
+                let toplamDoluDeneme = 0;
+
+                for (let i = 0; i < 5; i++) {
+                    let tVal = savedTrials[i] ? savedTrials[i].teshis : "";
+                    let iVal = savedTrials[i] ? savedTrials[i].ilac : "";
+
+                    if (tVal.trim() !== "") {
+                        toplamDoluDeneme++;
+                        if (tVal.toLowerCase().trim() === item.konsensusKarar.toLowerCase().trim()) {
+                            dogruSayisi++;
+                        }
+                    }
+
+                    // Teşhis Select Opsiyonları
+                    let tOptions = `<option value="">-- Teşhis Seçiniz --</option>`;
+                    let tDigerSelected = true;
+                    patojenListesiSecenekleri.forEach(p => {
+                        let isSel = (tVal === p);
+                        if (isSel) tDigerSelected = false;
+                        tOptions += `<option value="${p}" ${isSel ? 'selected' : ''}>${p}</option>`;
+                    });
+                    tOptions += `<option value="Diğer" ${tDigerSelected && tVal !== "" ? 'selected' : ''}>⚙️ Diğer (Kendim Yazacağım)</option>`;
+
+                    // İlaç Select Opsiyonları
+                    let iOptions = `<option value="">-- İlaç Seçiniz --</option>`;
+                    let iDigerSelected = true;
+                    ilacListesiSecenekleri.forEach(ilc => {
+                        let isSel = (iVal === ilc);
+                        if (isSel) iDigerSelected = false;
+                        iOptions += `<option value="${ilc}" ${isSel ? 'selected' : ''}>${ilc}</option>`;
+                    });
+                    iOptions += `<option value="Diğer" ${iDigerSelected && iVal !== "" ? 'selected' : ''}>⚙️ Diğer (Kendim Yazacağım)</option>`;
+
+                    let tInputDisplay = (tDigerSelected && tVal !== "") ? 'block' : 'none';
+                    let iInputDisplay = (iDigerSelected && iVal !== "") ? 'block' : 'none';
+                    let tGercekDeger = (tDigerSelected && tVal !== "") ? tVal : (tVal === "Diğer" ? "" : tVal);
+                    let iGercekDeger = (iDigerSelected && iVal !== "") ? iVal : (iVal === "Diğer" ? "" : iVal);
+
+                    trialInputsHTML += `
+                        <td>
+                            <select class="form-select form-select-sm ai-trial-select mb-1 teshis-select-${item.numuneNo}" data-numune="${item.numuneNo}" data-trial="${i}" onchange="selectDegisti('${item.numuneNo}', ${i}, 'teshis')">
+                                ${tOptions}
+                            </select>
+                            <input type="text" class="form-control form-control-sm ai-trial-input mb-1 teshis-input-${item.numuneNo}" data-numune="${item.numuneNo}" data-trial="${i}" placeholder="Hastalık adı yazın..." value="${tGercekDeger}" style="display: ${tInputDisplay};" oninput="girisGuncelle('${item.numuneNo}')">
+
+                            <select class="form-select form-select-sm ai-trial-select mb-1 ilac-select-${item.numuneNo}" data-numune="${item.numuneNo}" data-trial="${i}" onchange="selectDegisti('${item.numuneNo}', ${i}, 'ilac')">
+                                ${iOptions}
+                            </select>
+                            <input type="text" class="form-control form-control-sm ai-trial-input ilac-input-${item.numuneNo}" data-numune="${item.numuneNo}" data-trial="${i}" placeholder="İlaç adı yazın..." value="${iGercekDeger}" style="display: ${iInputDisplay};" oninput="girisGuncelle('${item.numuneNo}')">
+                        </td>
+                    `;
+                }
+
+                let yuzdeOran = toplamDoluDeneme > 0 ? Math.round((dogruSayisi / toplamDoluDeneme) * 100) : 0;
+                let badgeRenk = yuzdeOran >= 80 ? 'bg-success' : (yuzdeOran >= 50 ? 'bg-warning text-dark' : 'bg-danger');
+
+                tr.innerHTML = `
+                    <td class="text-center">
+                        <div class="image-container mx-auto" onclick="buyukGorselAc('${item.gorselYolu}', 'Numune #${formatliNumara}')">
+                            <img src="${item.gorselYolu}" class="thumb-img" onerror="this.src='https://via.placeholder.com/50?text=Yok'">
+                        </div>
+                    </td>
+                    <td class="fw-bold text-center">#${formatliNumara}</td>
+                    <td>
+                        <div class="fw-bold text-success" style="font-size: 0.75rem;">🦠 ${item.konsensusKarar}</div>
+                        <small class="text-muted" style="font-size: 0.7rem;">Uzlaşı: %${item.konsensusOrani}</small>
+                    </td>
+                    <td><span class="small text-primary fw-bold" style="font-size: 0.75rem;">💊 ${item.konsensusIlac}</span></td>
+                    ${trialInputsHTML}
+                    <td class="text-center">
+                        <span id="dogruluk-badge-${item.numuneNo}" class="badge ${badgeRenk} fs-6 px-2 py-1">%${yuzdeOran}</span>
+                        <div class="text-muted" style="font-size: 0.7rem;" id="dogruluk-detay-${item.numuneNo}">${dogruSayisi}/5 Doğru</div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function selectDegisti(numuneNo, trialIndex, tur) {
+            let selectEl = document.querySelector(`.${tur}-select-${numuneNo}[data-trial='${trialIndex}']`);
+            let inputEl = document.querySelector(`.${tur}-input-${numuneNo}[data-trial='${trialIndex}']`);
+
+            if (selectEl.value === "Diğer") {
+                inputEl.style.display = "block";
+                inputEl.value = "";
+                inputEl.focus();
+            } else {
+                inputEl.style.display = "none";
+                inputEl.value = selectEl.value;
+            }
+            girisGuncelle(numuneNo);
+        }
+
+        function girisGuncelle(numuneNo) {
+            let hedefKarar = "";
+            let hedefItem = konsensusVeriler.find(i => i.numuneNo === numuneNo);
+            if (hedefItem) hedefKarar = hedefItem.konsensusKarar.toLowerCase().trim();
+
+            let dogruSayisi = 0;
+            let toplamDolu = 0;
+            let trialVerileri = [];
+
+            for (let i = 0; i < 5; i++) {
+                let tSelect = document.querySelector(`.teshis-select-${numuneNo}[data-trial='${i}']`);
+                let tInput = document.querySelector(`.teshis-input-${numuneNo}[data-trial='${i}']`);
+                let iSelect = document.querySelector(`.ilac-select-${numuneNo}[data-trial='${i}']`);
+                let iInput = document.querySelector(`.ilac-input-${numuneNo}[data-trial='${i}']`);
+
+                let tVal = (tSelect.value === "Diğer") ? tInput.value.trim() : tSelect.value;
+                let iVal = (iSelect.value === "Diğer") ? iInput.value.trim() : iSelect.value;
+
+                trialVerileri.push({ teshis: tVal, ilac: iVal });
+
+                if (tVal !== "") {
+                    toplamDolu++;
+                    if (tVal.toLowerCase().trim() === hedefKarar) {
+                        dogruSayisi++;
+                    }
+                }
+            }
+
+            aiDenemeVerileri[numuneNo] = trialVerileri;
+            localStorage.setItem("agromap_ai_denemeler_select", JSON.stringify(aiDenemeVerileri));
+
+            let yuzdeOran = toplamDolu > 0 ? Math.round((dogruSayisi / toplamDolu) * 100) : 0;
+            let badgeEl = document.getElementById(`dogruluk-badge-${numuneNo}`);
+            let detayEl = document.getElementById(`dogruluk-detay-${numuneNo}`);
+
+            if (badgeEl && detayEl) {
+                badgeEl.innerText = `%${yuzdeOran}`;
+                badgeEl.className = `badge fs-6 px-2 py-1 ${yuzdeOran >= 80 ? 'bg-success' : (yuzdeOran >= 50 ? 'bg-warning text-dark' : 'bg-danger')}`;
+                detayEl.innerText = `${dogruSayisi}/5 Doğru`;
+            }
+
+            istatistikGuncelle();
+        }
+
+        function googleTabloyaAktar() {
+            let gonderilenSayi = 0;
+            let toplamKayit = konsensusVeriler.length;
+
+            if (toplamKayit === 0) {
+                alert("Gönderilecek konsensüs verisi bulunamadı.");
+                return;
+            }
+
+            if (!confirm("Tüm numune denemeleri ayrı ayrı sütunlar halinde yeni Google E-Tablonuza gönderilecektir. Devam edilsin mi?")) {
+                return;
+            }
+
+            konsensusVeriler.forEach(item => {
+                let trials = aiDenemeVerileri[item.numuneNo] || [];
+                let dogruSayisi = 0;
+                let dolu = 0;
+
+                trials.forEach(t => {
+                    if (t.teshis.trim() !== "") {
+                        dolu++;
+                        if (t.teshis.toLowerCase().trim() === item.konsensusKarar.toLowerCase().trim()) {
+                            dogruSayisi++;
+                        }
+                    }
+                });
+
+                let yuzdeOran = dolu > 0 ? Math.round((dogruSayisi / dolu) * 100) : 0;
+
+                let veri = {
+                    numuneNo: item.numuneNo,
+                    konsensusKarar: item.konsensusKarar,
+                    konsensusIlac: item.konsensusIlac,
+                    denemeler: trials,
+                    dogrulukOrani: yuzdeOran
+                };
+
+                fetch(yeniTabloScriptURL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(veri)
+                }).then(() => {
+                    gonderilenSayi++;
+                    if (gonderilenSayi === toplamKayit) {
+                        alert("Tüm veriler Google E-Tablonuza başarıyla aktarıldı!");
+                    }
+                }).catch(err => console.error("Kayıt hatası:", err));
+            });
+        }
+
+        function istatistikGuncelle() {
+            let toplamKonsensus = konsensusVeriler.length;
+            let testEdilen = 0;
+            let toplamBasariYuzdesiToplami = 0;
+            let toplamDenemeSayisi = 0;
+
+            konsensusVeriler.forEach(item => {
+                let trials = aiDenemeVerileri[item.numuneNo];
+                if (trials) {
+                    let dolu = trials.filter(t => t.teshis.trim() !== "").length;
+                    if (dolu > 0) {
+                        testEdilen++;
+                        let dogru = trials.filter(t => t.teshis.toLowerCase().trim() === item.konsensusKarar.toLowerCase().trim()).length;
+                        toplamBasariYuzdesiToplami += (dogru / dolu) * 100;
+                        toplamDenemeSayisi += dolu;
+                    }
+                }
+            });
+
+            let ortalamaBasari = testEdilen > 0 ? Math.round(toplamBasariYuzdesiToplami / testEdilen) : 0;
+
+            document.getElementById("statKonsensusToplam").innerText = toplamKonsensus;
+            document.getElementById("statTestEdilen").innerText = testEdilen;
+            document.getElementById("statOrtalamaBasari").innerText = `%${ortalamaBasari}`;
+            document.getElementById("statToplamDeneme").innerText = toplamDenemeSayisi;
+        }
+
+        function buyukGorselAc(yol, baslik) {
+            document.getElementById("modalBaslik").innerText = baslik;
+            document.getElementById("modalBuyukImg").src = yol;
+            let modal = new bootstrap.Modal(document.getElementById('gorselModal'));
+            modal.show();
+        }
+    </script>
+</body>
+</html>
