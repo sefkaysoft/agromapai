@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Microplastic Footprint & Release Audit Wizard (TR / EN / ES)</title>
+    <!-- Chart.js for Analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- html2canvas for Image Download -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- jsPDF for PDF Download -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        :root {
+            --primary: #0284c7;
+            --primary-dark: #0369a1;
+            --secondary: #0d9488;
+            --bg-light: #f0f9ff;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border: #cbd5e1;
+            --radius: 16px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background: var(--bg-light); color: var(--text-main); padding: 20px; line-height: 1.6; }
+        .container { max-width: 950px; margin: 0 auto; background: var(--card-bg); border-radius: var(--radius); box-shadow: 0 10px 30px rgba(0,0,0,0.08); padding: 30px; }
+
+        header { text-align: center; margin-bottom: 25px; border-bottom: 2px solid var(--bg-light); padding-bottom: 15px; }
+        header h1 { font-size: 1.8rem; color: var(--primary-dark); display: flex; align-items: center; justify-content: center; gap: 10px; }
+        header p { color: var(--text-muted); font-size: 0.95rem; margin-top: 5px; }
+
+        .lang-switch { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 15px; }
+        .lang-btn { background: #e0f2fe; border: 1px solid #bae6fd; padding: 6px 14px; border-radius: 20px; cursor: pointer; font-weight: bold; color: var(--primary-dark); font-size: 0.85rem; transition: all 0.2s; }
+        .lang-btn.active { background: var(--primary); color: white; border-color: var(--primary-dark); }
+
+        /* Step Navigation */
+        .steps-nav { display: flex; justify-content: space-between; margin-bottom: 30px; position: relative; }
+        .steps-nav::before { content: ''; position: absolute; top: 50%; left: 0; right: 0; height: 3px; background: var(--border); z-index: 1; transform: translateY(-50%); }
+        .step-dot { width: 38px; height: 38px; border-radius: 50%; background: #ffffff; border: 3px solid var(--border); display: flex; align-items: center; justify-content: center; font-weight: bold; color: var(--text-muted); z-index: 2; position: relative; transition: all 0.3s ease; }
+        .step-dot.active { border-color: var(--primary); background: var(--primary); color: white; }
+        .step-dot.completed { border-color: var(--secondary); background: var(--secondary); color: white; }
+
+        /* Form Steps */
+        .form-step { display: none; }
+        .form-step.active { display: block; animation: fadeIn 0.4s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .step-title { font-size: 1.25rem; color: var(--primary-dark); margin-bottom: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+        .form-group { margin-bottom: 22px; }
+        label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 0.95rem; }
+        select, input[type="text"], input[type="number"] { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 10px; font-size: 0.95rem; outline: none; transition: border 0.2s; }
+        select:focus, input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15); }
+        .help-text { font-size: 0.82rem; color: var(--text-muted); margin-top: 4px; }
+
+        /* Informational Science Boxes */
+        .info-box {
+            background: #f0fdf4;
+            border-left: 4px solid var(--secondary);
+            padding: 10px 14px;
+            margin-top: 6px;
+            border-radius: 0 8px 8px 0;
+            font-size: 0.84rem;
+            color: #14532d;
+            line-height: 1.45;
+        }
+
+        /* Buttons */
+        .btn-group { display: flex; justify-content: space-between; margin-top: 30px; }
+        .btn { padding: 12px 26px; border: none; border-radius: 10px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .btn-prev { background: #f1f5f9; color: var(--text-muted); }
+        .btn-next { background: var(--primary); color: white; }
+        .btn-next:hover { background: var(--primary-dark); }
+        .btn-submit { background: var(--secondary); color: white; }
+
+        /* Audit Report Section */
+        #reportCard { background: #ffffff; border: 2px solid var(--primary); border-radius: 16px; padding: 25px; margin-top: 20px; }
+        .report-header { text-align: center; border-bottom: 2px dashed var(--border); padding-bottom: 15px; margin-bottom: 20px; }
+        .report-header h2 { color: var(--primary-dark); font-size: 1.5rem; }
+        .report-header p { font-size: 0.88rem; color: var(--text-muted); }
+
+        .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 25px; }
+        .metric-card { background: var(--bg-light); border-radius: 12px; padding: 15px; text-align: center; border: 1px solid #bae6fd; }
+        .metric-value { font-size: 1.6rem; font-weight: bold; color: var(--primary-dark); margin: 5px 0; }
+        .metric-label { font-size: 0.85rem; color: var(--text-muted); }
+
+        .charts-wrapper { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+        @media (max-width: 700px) { .charts-wrapper { grid-template-columns: 1fr; } }
+        .chart-box { background: #fff; padding: 15px; border-radius: 12px; border: 1px solid var(--border); height: 280px; }
+
+        .actions-box { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 15px; margin-bottom: 20px; }
+        .actions-box h4 { color: #166534; margin-bottom: 8px; font-size: 1rem; }
+        .actions-box ul { list-style-position: inside; font-size: 0.9rem; color: #14532d; }
+
+        .download-btns { display: flex; gap: 10px; justify-content: center; margin-top: 20px; }
+        .btn-dl { background: #0f172a; color: white; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; border: none; }
+        .btn-dl:hover { background: #334155; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="lang-switch">
+        <button class="lang-btn active" onclick="setLanguage('tr')">🇹🇷 Türkçe</button>
+        <button class="lang-btn" onclick="setLanguage('en')">🇬🇧 English</button>
+        <button class="lang-btn" onclick="setLanguage('es')">🇪🇸 Español</button>
+    </div>
+
+    <header>
+        <h1 id="title" data-i18n="title">🧬 Mikroplastik Ayak İzi & Salınım Denetçisi</h1>
+        <p id="subtitle">EU Mission "Restore Our Ocean and Waters" & BlueLightS Framework</p>
+    </header>
+
+    <!-- Step Indicators -->
+    <div class="steps-nav">
+        <div class="step-dot active">1</div>
+        <div class="step-dot">2</div>
+        <div class="step-dot">3</div>
+        <div class="step-dot">4</div>
+        <div class="step-dot">5</div>
+    </div>
+
+    <form id="auditForm">
+        <!-- STEP 1: Student Profile -->
+        <div class="form-step active" id="step1">
+            <div class="step-title">👤 <span data-i18n="step1_title">Öğrenci Profil Bilgileri</span></div>
+            <div class="form-group">
+                <label data-i18n="lbl_name">Öğrenci Adı ve Soyadının İlk Harfi</label>
+                <input type="text" id="studentName" placeholder="Örn: Ahmet K. / Eva M." required>
+                <div class="help-text" data-i18n="help_esafety">e-Güvenlik uyarısı: Lütfen kesinlikle tam soyadınızı yazmayın!</div>
+            </div>
+            <div class="form-group">
+                <label data-i18n="lbl_school">Okul Adı</label>
+                <input type="text" id="schoolName" placeholder="Örn: Gürsu BİLSEM / Colegio Nobelis" required>
+            </div>
+            <div class="form-group">
+                <label data-i18n="lbl_household">Evdeki Birey Sayısı</label>
+                <input type="number" id="householdSize" min="1" max="10" value="4" required>
+                <div class="info-box" data-i18n="info_household">Bireysel kişi başı salınım miktarını doğru hesaplamak için aile büyüklüğü bölerek ortalama değeri verir.</div>
+            </div>
+        </div>
+
+        <!-- STEP 2: Laundry & Microfibers -->
+        <div class="form-step" id="step2">
+            <div class="step-title">👕 <span data-i18n="step2_title">Tekstil & Çamaşır Yıkama Detayları</span></div>
+            
+            <div class="form-group">
+                <label data-i18n="lbl_synthetic">Sentetik Giysi Oranı (Polyester, Polar, Naylon)</label>
+                <select id="syntheticRatio">
+                    <option value="15" data-i18n="opt_low">Düşük (%0 - %25 Doğal/Pamuk)</option>
+                    <option value="40" selected data-i18n="opt_mid">Orta (%25 - %60 Sentetik)</option>
+                    <option value="75" data-i18n="opt_high">Yüksek (%60+ Sentetik/Spor kıyafeti)</option>
+                </select>
+                <div class="info-box" data-i18n="info_synthetic">Sentetik kumaşlar plastikten üretilir. Tek bir 6 kg yıkamada 700.000 mikroskopik plastik lifi atık suya karışabilir!</div>
+            </div>
+
+            <div class="form-group">
+                <label data-i18n="lbl_wash_freq">Haftalık Çamaşır Makinesi Yıkama Sayısı</label>
+                <input type="number" id="washFreq" min="1" max="20" value="4">
+                <div class="info-box" data-i18n="info_wash_freq">Çamaşır makinesi sürtünmesi lifleri koparır. Sürekli yıkama, yılda binlerce gram doğrudan mikroelyafı kanalizasyona gönderir.</div>
+            </div>
+
+            <div class="form-group">
+                <label data-i18n="lbl_wash_temp">Yıkama Sıcaklığı ve Yıkama Programı</label>
+                <select id="washTemp">
+                    <option value="1.0" data-i18n="opt_temp_cold">Soğuk / 30°C (Düşük Elyaf Salınımı)</option>
+                    <option value="1.4" selected data-i18n="opt_temp_mid">40°C - 60°C (Standart)</option>
+                    <option value="2.1" data-i18n="opt_temp_hot">60°C+ Yüksek Sıcaklık (Yüksek Aşınma)</option>
+                </select>
+                <div class="info-box" data-i18n="info_wash_temp">Yüksek sıcaklıklar kumaş dokusunu gevşetir. 60°C ve üzeri sıcaklıklar, 30°C yıkamaya kıyasla %50 daha fazla plastik lif dökülmesine yol açar.</div>
+            </div>
+
+            <div class="form-group">
+                <label data-i18n="lbl_dryer">Kurutma Makinesi Kullanım Durumu</label>
+                <select id="dryerUse">
+                    <option value="0" data-i18n="opt_dryer_no">Kullanılmıyor (İpte kurutma)</option>
+                    <option value="120" selected data-i18n="opt_dryer_yes">Kullanılıyor (Hava yoluyla mikroelyaf yayılımı)</option>
+                </select>
+                <div class="info-box" data-i18n="info_dryer">Kurutma makineleri ısı ve hava akımıyla mikroelyafları havaya savurur; bu lifler yağmur ve hava yoluyla su kaynaklarına ulaşır.</div>
+            </div>
+
+            <div class="form-group">
+                <label data-i18n="lbl_filter">Mikroelyaf Tutucu Filtre / Torba (Guppyfriend)</label>
+                <select id="microfiberFilter">
+                    <option value="no" data-i18n="opt_no">Kullanılmıyor</option>
+                    <option value="yes" data-i18n="opt_yes">Kullanılıyor (%80 Elyaf Tutma)</option>
+                </select>
+                <div class="info-box" data-i18n="info_filter">Guppyfriend yıkama torbası veya özel filtreler, kopan plastik liflerin %80'ini süzerek denize ve nehirlere ulaşmasını engeller.</div>
+            </div>
+        </div>
+
+        <!-- STEP 3: Personal Care & Packaging -->
+        <div class="form-step" id="step3">
+            <div class="step-title">🧴 <span data-i18n="step3_title">Kişisel Bakım & Ambalaj Tüketimi</span></div>
+
+            <div class="form-group">
+                <label data-i18n="lbl_microbeads">Mikroboncuk (Microbeads) İçeren Ürünler</label>
+                <select id="microbeadUse">
+                    <option value="0" data-i18n="opt_none">Hiç kullanılmıyor (Doğal/Sertifikalı)</option>
+                    <option value="150" selected data-i18n="opt_sometimes">Bazen (Peeling / Standart diş macunu)</option>
+                    <option value="400" data-i18n="opt_often">Düzenli (Sentetik duş jeli / Peeling kremi)</option>
+                </select>
+                <div class="info-box" data-i18n="info_microbeads">Bazı peeling jelleri ve diş macunları Polyethylene (PE) mikroboncuklar içerir. Lavabodan direkt arıtmasız şekilde sulara karışırlar.</div>
+            </div>
+
+            <div class="form-group">
+                <label data-i18n="lbl_single_use">Tek Kullanımlık Plastik Tüketimi</label>
+                <select id="singleUsePlastics">
+                    <option value="1" data-i18n="opt_low_p">Düşük (Matara & bez çanta)</option>
+                    <option value="2.5" selected data-i18n="opt_mid_p">Orta (Bazen pet şişe/poşet)</option>
+                    <option value="5" data-i18n="opt_high_p">Yüksek (Düzenli paketli gıda ve pet şişe)</option>
+                </select>
+                <div class="info-box" data-i18n="info_single_use">Atılan plastik pet şişeler ve poşetler doğada yok olmaz; güneş ışığı (UV) ve rüzgarla bölünerek ikincil mikroplastiklere dönüşür.</div>
+            </div>
+        </div>
+
+        <!-- STEP 4: Transport & Household Environment -->
+        <div class="form-step" id="step4">
+            <div class="step-title">🚗 <span data-i18n="step4_title">Ulaşım (Lastik Aşınması) & Ev Yapısı</span></div>
+
+            <div class="form-group">
+                <label data-i18n="lbl_car_km">Ailenin Yıllık Ortalama Araç Kullanım Mesafesi</label>
+                <select id="carKm">
+                    <option value="0" data-i18n="opt_car_none">Araç kullanılmıyor (Bisiklet/Toplu taşıma)</option>
+                    <option value="5000" data-i18n="opt_car_low">Az (0 - 5.000 km/yıl)</option>
+                    <option value="15000" selected data-i18n="opt_car_mid">Orta (5.000 - 15.000 km/yıl)</option>
+                    <option value="25000" data-i18n="opt_car_high">Yüksek (15.000+ km/yıl)</option>
+                </select>
+                <div class="info-box" data-i18n="info_car_km">Araba lastikleri sentetik kauçuktan yapılır. Sürtünmeyle aşınan lastik tozları nehir kanalları ve yağmur sularıyla denizlere taşınan 1 numaralı mikroplastik kaynağıdır!</div>
+            </div>
+
+            <div class="form-group">
+                <label data-i18n="lbl_carpets">Evdeki Sentetik Halı & Tekstil Yoğunluğu</label>
+                <select id="syntheticCarpets">
+                    <option value="1" data-i18n="opt_carpet_low">Az (Ahşap/Doğal zemin)</option>
+                    <option value="2" selected data-i18n="opt_carpet_mid">Orta (Karma halı/tekstil)</option>
+                    <option value="3.5" data-i18n="opt_carpet_high">Yüksek (Sentetik halı kaplama)</option>
+                </select>
+                <div class="info-box" data-i18n="info_carpets">Sentetik halılar ve mobilyalar sürekli mikroskobik plastik tozu saçar. Süpürme ve havalandırma ile bu tozlar suya ve soluduğumuz havaya karışır.</div>
+            </div>
+        </div>
+
+        <!-- STEP 5: Results & Audit Generation -->
+        <div class="form-step" id="step5">
+            <div class="step-title">📊 <span data-i18n="step5_title">Denetim Raporu Oluşturma</span></div>
+            <p data-i18n="text_step5_desc">Girdiğiniz veriler ISO 14046 ve IUCN mikroplastik salınım standartlarına göre hesaplanacaktır. Raporunuzu oluşturmak için aşağıdaki butona tıklayın.</p>
+            <div style="text-align: center; margin-top: 20px;">
+                <button type="button" class="btn btn-submit" onclick="generateAuditReport()" data-i18n="btn_run">⚡ Denetimi Çalıştır & Rapor Oluştur</button>
+            </div>
+
+            <!-- REPORT CARD (HIDDEN UNTIL CALCULATION) -->
+            <div id="reportCard" style="display: none;">
+                <div class="report-header">
+                    <h2>🇪🇺 Official Microplastic Audit Report Card</h2>
+                    <p>STREAM-BLUE: European Blue School Mentorship & Water Guardians</p>
+                </div>
+
+                <div style="margin-bottom: 15px; font-size: 0.95rem;">
+                    <strong>Student:</strong> <span id="resStudent"></span> | 
+                    <strong>School:</strong> <span id="resSchool"></span>
+                </div>
+
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-label" data-i18n="res_direct_label">Doğrudan Suya Karışan Mikroplastik</div>
+                        <div class="metric-value" id="resDirect">0 g/yıl</div>
+                        <div class="metric-label" data-i18n="res_direct_sub">Sentetik elyaf + Mikroboncuk</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label" data-i18n="res_secondary_label">Çevreye Bırakılan Plastik Yükü</div>
+                        <div class="metric-value" id="resSecondary">0 kg/yıl</div>
+                        <div class="metric-label" data-i18n="res_secondary_sub">Ambalaj + Lastik aşınması</div>
+                    </div>
+                </div>
+
+                <div class="charts-wrapper">
+                    <div class="chart-box"><canvas id="pieChart"></canvas></div>
+                    <div class="chart-box"><canvas id="radarChart"></canvas></div>
+                </div>
+
+                <div class="actions-box">
+                    <h4 data-i18n="actions_title">🌱 Tavsiye Edilen Mavi Eylemler</h4>
+                    <ul id="actionList"></ul>
+                </div>
+
+                <div class="download-btns">
+                    <button type="button" class="btn-dl" onclick="downloadImage()">📸 PNG İndir</button>
+                    <button type="button" class="btn-dl" onclick="downloadPDF()">📄 PDF İndir</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation Buttons -->
+        <div class="btn-group" id="btnGroup">
+            <button type="button" class="btn btn-prev" id="prevBtn" onclick="changeStep(-1)" style="display: none;" data-i18n="btn_prev">Geri</button>
+            <button type="button" class="btn btn-next" id="nextBtn" onclick="changeStep(1)" data-i18n="btn_next">İleri</button>
+        </div>
+    </form>
+</div>
+
+<script>
+    let currentStep = 1;
+    let currentLang = 'tr';
+    let pieChartInst = null;
+    let radarChartInst = null;
+    let lastDirectGrams = 0;
+    let lastSecondaryKg = 0;
+
+    const translations = {
+        tr: {
+            title: "🧬 Mikroplastik Ayak İzi & Salınım Denetçisi",
+            subtitle: "AB 'Okyanusları ve Suları İyileştirme' Misyonu & BlueLightS Çerçevesi",
+            step1_title: "Öğrenci Profil Bilgileri",
+            lbl_name: "Öğrenci Adı ve Soyadının İlk Harfi",
+            help_esafety: "e-Güvenlik uyarısı: Lütfen kesinlikle tam soyadınızı yazmayın!",
+            lbl_school: "Okul Adı",
+            lbl_household: "Evdeki Birey Sayısı",
+            info_household: "💡 Bireysel kişi başı salınım miktarını doğru hesaplamak için aile büyüklüğü bölerek ortalama değeri verir.",
+            
+            step2_title: "Tekstil & Çamaşır Yıkama Detayları",
+            lbl_synthetic: "Sentetik Giysi Oranı (Polyester, Polar, Naylon)",
+            opt_low: "Düşük (%0 - %25 Doğal/Pamuk)",
+            opt_mid: "Orta (%25 - %60 Sentetik)",
+            opt_high: "Yüksek (%60+ Sentetik/Spor kıyafeti)",
+            info_synthetic: "💡 Sentetik kumaşlar plastikten üretilir. Tek bir 6 kg yıkamada 700.000 mikroskopik plastik lifi atık suya karışabilir!",
+            
+            lbl_wash_freq: "Haftalık Çamaşır Makinesi Yıkama Sayısı",
+            info_wash_freq: "💡 Çamaşır makinesi sürtünmesi lifleri koparır. Sürekli yıkama, yılda binlerce gram doğrudan mikroelyafı kanalizasyona gönderir.",
+            
+            lbl_wash_temp: "Yıkama Sıcaklığı ve Yıkama Programı",
+            opt_temp_cold: "Soğuk / 30°C (Düşük Elyaf Salınımı)",
+            opt_temp_mid: "40°C - 60°C (Standart)",
+            opt_temp_hot: "60°C+ Yüksek Sıcaklık (Yüksek Aşınma)",
+            info_wash_temp: "💡 Yüksek sıcaklıklar kumaş dokusunu gevşetir. 60°C ve üzeri sıcaklıklar, 30°C yıkamaya kıyasla %50 daha fazla plastik lif dökülmesine yol açar.",
+            
+            lbl_dryer: "Kurutma Makinesi Kullanım Durumu",
+            opt_dryer_no: "Kullanılmıyor (İpte kurutma)",
+            opt_dryer_yes: "Kullanılıyor (Hava yoluyla mikroelyaf yayılımı)",
+            info_dryer: "💡 Kurutma makineleri ısı ve hava akımıyla mikroelyafları havaya savurur; bu lifler yağmur ve hava yoluyla su kaynaklarına ulaşır.",
+            
+            lbl_filter: "Mikroelyaf Tutucu Filtre / Torba (Guppyfriend)",
+            opt_no: "Kullanılmıyor",
+            opt_yes: "Kullanılıyor (%80 Elyaf Tutma)",
+            info_filter: "🛡️ Guppyfriend yıkama torbası veya özel filtreler, kopan plastik liflerin %80'ini süzerek denize ve nehirlere ulaşmasını engeller.",
+            
+            step3_title: "Kişisel Bakım & Ambalaj Tüketimi",
+            lbl_microbeads: "Mikroboncuk (Microbeads) İçeren Ürünler",
+            opt_none: "Hiç kullanılmıyor (Doğal/Sertifikalı)",
+            opt_sometimes: "Bazen (Peeling / Standart diş macunu)",
+            opt_often: "Düzenli (Sentetik duş jeli / Peeling kremi)",
+            info_microbeads: "💡 Bazı peeling jelleri ve diş macunları Polyethylene (PE) mikroboncuklar içerir. Lavabodan direkt arıtmasız şekilde sulara karışırlar.",
+            
+            lbl_single_use: "Tek Kullanımlık Plastik Tüketimi",
+            opt_low_p: "Düşük (Matara & bez çanta)",
+            opt_mid_p: "Orta (Bazen pet şişe/poşet)",
+            opt_high_p: "Yüksek (Düzenli paketli gıda ve pet şişe)",
+            info_single_use: "💡 Atılan plastik pet şişeler ve poşetler doğada yok olmaz; güneş ışığı (UV) ve rüzgarla bölünerek ikincil mikroplastiklere dönüşür.",
+            
+            step4_title: "Ulaşım (Lastik Aşınması) & Ev Yapısı",
+            lbl_car_km: "Ailenin Yıllık Ortalama Araç Kullanım Mesafesi",
+            opt_car_none: "Araç kullanılmıyor (Bisiklet/Toplu taşıma)",
+            opt_car_low: "Az (0 - 5.000 km/yıl)",
+            opt_car_mid: "Orta (5.000 - 15.000 km/yıl)",
+            opt_car_high: "Yüksek (15.000+ km/yıl)",
+            info_car_km: "💡 Araba lastikleri sentetik kauçuktan yapılır. Sürtünmeyle aşınan lastik tozları nehir kanalları ve yağmur sularıyla denizlere taşınan 1 numaralı mikroplastik kaynağıdır!",
+            
+            lbl_carpets: "Evdeki Sentetik Halı & Tekstil Yoğunluğu",
+            opt_carpet_low: "Az (Ahşap/Doğal zemin)",
+            opt_carpet_mid: "Orta (Karma halı/tekstil)",
+            opt_carpet_high: "Yüksek (Sentetik halı kaplama)",
+            info_carpets: "💡 Sentetik halılar ve mobilyalar sürekli mikroskobik plastik tozu saçar. Süpürme ve havalandırma ile bu tozlar suya ve soluduğumuz havaya karışır.",
+            
+            step5_title: "Denetim Raporu Oluşturma",
+            text_step5_desc: "Girdiğiniz veriler ISO 14046 ve IUCN mikroplastik salınım standartlarına göre hesaplanacaktır.",
+            btn_run: "⚡ Denetimi Çalıştır & Rapor Oluştur",
+            btn_prev: "Geri",
+            btn_next: "İleri",
+            res_direct_label: "Doğrudan Suya Karışan Mikroplastik",
+            res_direct_sub: "Sentetik elyaf + Mikroboncuk",
+            res_secondary_label: "Çevreye Bırakılan Plastik Yükü",
+            res_secondary_sub: "Ambalaj + Lastik aşınması",
+            actions_title: "🌱 Tavsiye Edilen Mavi Eylemler",
+            unit_gram_year: "g/yıl",
+            unit_kg_year: "kg/yıl"
+        },
+        en: {
+            title: "🧬 Microplastic Footprint & Release Audit Wizard",
+            subtitle: "EU Mission 'Restore Our Ocean and Waters' & BlueLightS Framework",
+            step1_title: "Student Profile Information",
+            lbl_name: "Student First Name + Surname Initial",
+            help_esafety: "e-Safety warning: Do NOT enter your full surname!",
+            lbl_school: "School Name",
+            lbl_household: "Household Size (Number of People)",
+            info_household: "💡 Household size divides total data to provide accurate per capita individual release metrics.",
+            
+            step2_title: "Textiles & Laundry Details",
+            lbl_synthetic: "Synthetic Clothing Ratio (Polyester, Fleece, Nylon)",
+            opt_low: "Low (0% - 25% Natural/Cotton)",
+            opt_mid: "Medium (25% - 60% Synthetic)",
+            opt_high: "High (60%+ Synthetic/Sportswear)",
+            info_synthetic: "💡 Synthetic fabrics are made of plastic. A single 6 kg laundry load can release 700,000 microscopic plastic fibers into wastewater!",
+            
+            lbl_wash_freq: "Weekly Laundry Machine Cycles",
+            info_wash_freq: "💡 Washing machine friction breaks fibers. Frequent washing sends thousands of grams of microfibers directly into sewage systems annually.",
+            
+            lbl_wash_temp: "Wash Temperature & Cycle Program",
+            opt_temp_cold: "Cold / 30°C (Low Fiber Release)",
+            opt_temp_mid: "40°C - 60°C (Standard)",
+            opt_temp_hot: "60°C+ High Temperature (High Shedding)",
+            info_wash_temp: "💡 High temperatures loosen fabric structures. Washing at 60°C+ causes 50% more microfiber shedding compared to cold 30°C washes.",
+            
+            lbl_dryer: "Tumble Dryer Usage",
+            opt_dryer_no: "Not used (Air drying)",
+            opt_dryer_yes: "Used (Airborne microfiber dispersion)",
+            info_dryer: "💡 Tumble dryers disperse microfibers into the air via heat and airflow; these airborne fibers eventually land in water bodies through rain.",
+            
+            lbl_filter: "Microfiber Capture Filter / Bag (Guppyfriend)",
+            opt_no: "Not Used",
+            opt_yes: "Used (80% Fiber Retention)",
+            info_filter: "🛡️ Using a Guppyfriend washing bag or filter traps 80% of shed microfibers, preventing them from reaching oceans and rivers.",
+            
+            step3_title: "Personal Care & Packaging Consumption",
+            lbl_microbeads: "Microbead-containing Personal Care Products",
+            opt_none: "Never (Natural/Certified)",
+            opt_sometimes: "Sometimes (Peeling / Standard toothpaste)",
+            opt_often: "Regularly (Synthetic shower gel / Peeling cream)",
+            info_microbeads: "💡 Some scrub gels and toothpastes contain Polyethylene (PE) microbeads. They wash straight down the drain into aquatic ecosystems.",
+            
+            lbl_single_use: "Single-Use Plastic Consumption",
+            opt_low_p: "Low (Reusable bottle & tote bag)",
+            opt_mid_p: "Medium (Occasional plastic bottles/bags)",
+            opt_high_p: "High (Regular plastic bottles & packaged food)",
+            info_single_use: "💡 Discarded plastic bottles and bags never vanish; UV sunlight and wind fragment them into secondary microplastics over time.",
+            
+            step4_title: "Transport (Tire Wear) & Home Structure",
+            lbl_car_km: "Family Annual Car Travel Distance",
+            opt_car_none: "No personal car (Bike/Public transit)",
+            opt_car_low: "Low (0 - 5,000 km/year)",
+            opt_car_mid: "Medium (5,000 - 15,000 km/year)",
+            opt_car_high: "High (15,000+ km/year)",
+            info_car_km: "💡 Car tires are made of synthetic rubber. Tire dust from friction is the #1 source of microplastics washed into oceans via storm drains!",
+            
+            lbl_carpets: "Household Synthetic Carpet Density",
+            opt_carpet_low: "Low (Wood/Natural flooring)",
+            opt_carpet_mid: "Medium (Mixed textiles/rugs)",
+            opt_carpet_high: "High (Dense synthetic carpeting)",
+            info_carpets: "💡 Synthetic carpets shed microscopic plastic dust continuously. Vacuuming and air currents transfer this dust into water runoff and air.",
+            
+            step5_title: "Generate Audit Report",
+            text_step5_desc: "Your data will be calculated according to ISO 14046 and IUCN microplastic release standards.",
+            btn_run: "⚡ Run Audit & Generate Report",
+            btn_prev: "Previous",
+            btn_next: "Next",
+            res_direct_label: "Direct Water Microplastic Release",
+            res_direct_sub: "Synthetic fibers + Microbeads",
+            res_secondary_label: "Environmental Plastic Load",
+            res_secondary_sub: "Packaging + Tire wear",
+            actions_title: "🌱 Recommended Blue Actions",
+            unit_gram_year: "g/year",
+            unit_kg_year: "kg/year"
+        },
+        es: {
+            title: "🧬 Asistente de Auditoría de Huella de Microplásticos",
+            subtitle: "Misión UE 'Restaurar Nuestros Océanos y Aguas' & Marco BlueLightS",
+            step1_title: "Perfil del Estudiante",
+            lbl_name: "Nombre + Inicial del Apellido",
+            help_esafety: "¡Advertencia e-Safety: NO escriba su apellido completo!",
+            lbl_school: "Nombre del Colegio",
+            lbl_household: "Número de Personas en el Hogar",
+            info_household: "💡 El tamaño del hogar divide los datos totales para ofrecer la métrica per cápita individual exacta.",
+            
+            step2_title: "Detalles de Textil y Lavado",
+            lbl_synthetic: "Proporción de Ropa Sintética (Poliéster, Polar)",
+            opt_low: "Baja (0% - 25% Algodón/Natural)",
+            opt_mid: "Media (25% - 60% Sintético)",
+            opt_high: "Alta (60%+ Sintético/Deporte)",
+            info_synthetic: "💡 Las telas sintéticas son plástico. ¡Un solo lavado de 6 kg puede liberar 700.000 microfibras de plástico microscópicas al agua!",
+            
+            lbl_wash_freq: "Lavados de Ropa por Semana",
+            info_wash_freq: "💡 La fricción de la lavadora rompe las fibras. Lavar con frecuencia envía miles de gramos de microfibras al alcantarillado.",
+            
+            lbl_wash_temp: "Temperatura del Agua de Lavado",
+            opt_temp_cold: "Frío / 30°C (Bajo desprendimiento)",
+            opt_temp_mid: "40°C - 60°C (Estándar)",
+            opt_temp_hot: "60°C+ Alta Temperatura (Alto desprendimiento)",
+            info_wash_temp: "💡 Las altas temperaturas aflojan las fibras. Lavar a 60°C+ provoca un 50% más de desprendimiento de fibras en comparación con 30°C.",
+            
+            lbl_dryer: "Uso de Secadora de Ropa",
+            opt_dryer_no: "No se usa (Secado al aire)",
+            opt_dryer_yes: "Se usa (Dispersión aérea de microfibras)",
+            info_dryer: "💡 Las secadoras dispersan microfibras al aire con calor y flujo de aire; estas fibras caen al agua a través de la lluvia.",
+            
+            lbl_filter: "Filtro/Bolsa Capturadora de Microfibras",
+            opt_no: "No se usa",
+            opt_yes: "Se usa (80% Retención de fibras)",
+            info_filter: "🛡️ Usar una bolsa Guppyfriend o filtro atrapa el 80% de las microfibras desprendidas, evitando que lleguen a los océanos.",
+            
+            step3_title: "Cuidado Personal y Envases",
+            lbl_microbeads: "Productos con Microesferas de Plástico",
+            opt_none: "Nunca (Natural/Certificado)",
+            opt_sometimes: "A veces (Exfoliante / Pasta dental)",
+            opt_often: "Regularmente (Gel sintético / Exfoliante)",
+            info_microbeads: "💡 Algunos exfoliantes y pastas contienen microesferas de polietileno (PE). Van directamente del lavabo a los ecosistemas acuáticos.",
+            
+            lbl_single_use: "Consumo de Plásticos de Un Solo Uso",
+            opt_low_p: "Bajo (Botella reutilizable y bolsa de tela)",
+            opt_mid_p: "Medio (Ocasional botellas/bolsas)",
+            opt_high_p: "Alto (Botellas de plástico frecuentes)",
+            info_single_use: "💡 Las botellas y bolsas desechadas no desaparecen; la luz UV y el viento las fragmentan en microplásticos secundarios.",
+            
+            step4_title: "Transporte (Desgaste de Neumáticos) y Hogar",
+            lbl_car_km: "Distancia Anual Recorrida en Coche",
+            opt_car_none: "Sin coche propio (Bici/Transporte público)",
+            opt_car_low: "Poco (0 - 5.000 km/año)",
+            opt_car_mid: "Medio (5.000 - 15.000 km/año)",
+            opt_car_high: "Alto (15.000+ km/año)",
+            info_car_km: "💡 Los neumáticos son de caucho sintético. El polvo por fricción es la fuente #1 de microplásticos arrastrados por la lluvia al mar.",
+            
+            lbl_carpets: "Densidad de Alfombras Sintéticas en Casa",
+            opt_carpet_low: "Baja (Suelo de madera/natural)",
+            opt_carpet_mid: "Media (Alfombras mixtas)",
+            opt_carpet_high: "Alta (Moqueta sintética densa)",
+            info_carpets: "💡 Las alfombras sintéticas liberan polvo plástico continuamente. Al aspirar y ventilar, este polvo llega al agua y al aire.",
+            
+            step5_title: "Generar Informe de Auditoría",
+            text_step5_desc: "Sus datos se calcularán según los estándares ISO 14046 y la UICN.",
+            btn_run: "⚡ Ejecutar Auditoría y Generar Informe",
+            btn_prev: "Anterior",
+            btn_next: "Siguiente",
+            res_direct_label: "Liberación Directa de Microplásticos al Agua",
+            res_direct_sub: "Fibras sintéticas + Microesferas",
+            res_secondary_label: "Carga Plástica Ambiental",
+            res_secondary_sub: "Envases + Desgaste de neumáticos",
+            actions_title: "🌱 Acciones Azules Recomendadas",
+            unit_gram_year: "g/año",
+            unit_kg_year: "kg/año"
+        }
+    };
+
+    function setLanguage(lang) {
+        currentLang = lang;
+        document.querySelectorAll('.lang-btn').forEach(btn => btn.classList.remove('active'));
+        event.target.classList.add('active');
+
+        document.querySelectorAll('[data-i18n]').forEach(el => {
+            const key = el.getAttribute('data-i18n');
+            if (translations[lang][key]) {
+                el.innerText = translations[lang][key];
+            }
+        });
+
+        // Rapor ekranı zaten görünür durumdaysa metinleri ve birimleri yeni seçilen dile göre güncelle
+        if (document.getElementById('reportCard').style.display !== 'none') {
+            document.getElementById('resDirect').innerText = lastDirectGrams + ' ' + translations[currentLang].unit_gram_year;
+            document.getElementById('resSecondary').innerText = lastSecondaryKg + ' ' + translations[currentLang].unit_kg_year;
+            updateActionRecommendations();
+        }
+    }
+
+    function updateStepUI() {
+        document.querySelectorAll('.form-step').forEach((el, index) => {
+            el.classList.toggle('active', index + 1 === currentStep);
+        });
+
+        document.querySelectorAll('.step-dot').forEach((el, index) => {
+            el.classList.remove('active', 'completed');
+            if (index + 1 === currentStep) el.classList.add('active');
+            if (index + 1 < currentStep) el.classList.add('completed');
+        });
+
+        document.getElementById('prevBtn').style.display = currentStep === 1 ? 'none' : 'block';
+        document.getElementById('nextBtn').style.display = currentStep === 5 ? 'none' : 'block';
+    }
+
+    function changeStep(delta) {
+        if (delta === 1 && !validateStep(currentStep)) return;
+        currentStep = Math.max(1, Math.min(5, currentStep + delta));
+        updateStepUI();
+    }
+
+    function validateStep(step) {
+        if (step === 1) {
+            const name = document.getElementById('studentName').value.trim();
+            const school = document.getElementById('schoolName').value.trim();
+            if (!name || !school) {
+                alert(currentLang === 'tr' ? 'Lütfen adınızı ve okulunuzu giriniz!' : (currentLang === 'es' ? '¡Por favor ingrese su nombre y colegio!' : 'Please enter your name and school!'));
+                return false;
+            }
+        }
+        return true;
+    }
+
+    function updateActionRecommendations() {
+        const synthRatio = parseFloat(document.getElementById('syntheticRatio').value);
+        const washTempCoeff = parseFloat(document.getElementById('washTemp').value);
+        const filterUsed = document.getElementById('microfiberFilter').value === 'yes';
+        const singleUseCoeff = parseFloat(document.getElementById('singleUsePlastics').value);
+
+        const actionList = document.getElementById('actionList');
+        actionList.innerHTML = '';
+        const actions = [];
+        
+        if (!filterUsed) {
+            if (currentLang === 'tr') actions.push('Çamaşır makinenizde mikroelyaf tutucu torba (Guppyfriend) veya özel dış filtre kullanın.');
+            else if (currentLang === 'es') actions.push('Use una bolsa capturadora de microfibras (Guppyfriend) en su lavadora.');
+            else actions.push('Use a microfiber capture bag (Guppyfriend) or external filter in your laundry.');
+        }
+        if (washTempCoeff > 1.2) {
+            if (currentLang === 'tr') actions.push('Çamaşırlarınızı 30°C ve daha düşük sıcaklıklarda yıkayarak elyaf dökülmesini %30 azaltın.');
+            else if (currentLang === 'es') actions.push('Lave su ropa a 30°C o menos para reducir el desprendimiento de fibras en un 30%.');
+            else actions.push('Wash clothes at 30°C or colder to reduce fiber shedding by 30%.');
+        }
+        if (singleUseCoeff > 2) {
+            if (currentLang === 'tr') actions.push('Tek kullanımlık pet şişeler yerine paslanmaz çelik matara tercih edin.');
+            else if (currentLang === 'es') actions.push('Sustituya las botellas de plástico por una botella reutilizable de acero inoxidable.');
+            else actions.push('Replace single-use plastic bottles with a reusable stainless steel water bottle.');
+        }
+
+        actions.forEach(act => {
+            const li = document.createElement('li');
+            li.innerText = act;
+            actionList.appendChild(li);
+        });
+    }
+
+    function generateAuditReport() {
+        const size = parseFloat(document.getElementById('householdSize').value) || 1;
+        const synthRatio = parseFloat(document.getElementById('syntheticRatio').value);
+        const washFreq = parseFloat(document.getElementById('washFreq').value);
+        const washTempCoeff = parseFloat(document.getElementById('washTemp').value);
+        const dryerGrams = parseFloat(document.getElementById('dryerUse').value);
+        const filterUsed = document.getElementById('microfiberFilter').value === 'yes';
+        
+        const microbeads = parseFloat(document.getElementById('microbeadUse').value);
+        const singleUseCoeff = parseFloat(document.getElementById('singleUsePlastics').value);
+        const carKm = parseFloat(document.getElementById('carKm').value);
+        const carpetCoeff = parseFloat(document.getElementById('syntheticCarpets').value);
+
+        // 1. Direct Water Microplastics (Fibers + Microbeads + Dryer)
+        let annualLaundryFibers = (washFreq * 52 * (synthRatio * 14) * washTempCoeff) / size;
+        if (filterUsed) annualLaundryFibers *= 0.2; // 80% reduction
+
+        lastDirectGrams = Math.round(annualLaundryFibers + microbeads + (dryerGrams / size));
+
+        // 2. Secondary Plastics (Tires + Single-use Packaging + Home Dust)
+        const tireWearKg = (carKm * 0.00011) / size;
+        const packagingKg = singleUseCoeff * 11.5;
+        lastSecondaryKg = (tireWearKg + packagingKg + (carpetCoeff * 1.8)).toFixed(1);
+
+        // Populate Audit UI
+        document.getElementById('resStudent').innerText = document.getElementById('studentName').value;
+        document.getElementById('resSchool').innerText = document.getElementById('schoolName').value;
+        document.getElementById('resDirect').innerText = lastDirectGrams + ' ' + translations[currentLang].unit_gram_year;
+        document.getElementById('resSecondary').innerText = lastSecondaryKg + ' ' + translations[currentLang].unit_kg_year;
+
+        // Update Dynamic Action Recommendations based on selected language
+        updateActionRecommendations();
+
+        document.getElementById('reportCard').style.display = 'block';
+        renderCharts(annualLaundryFibers, microbeads, tireWearKg, packagingKg);
+    }
+
+    function renderCharts(fibers, beads, tires, pack) {
+        if (pieChartInst) pieChartInst.destroy();
+        if (radarChartInst) radarChartInst.destroy();
+
+        const ctxPie = document.getElementById('pieChart').getContext('2d');
+        pieChartInst = new Chart(ctxPie, {
+            type: 'doughnut',
+            data: {
+                labels: ['Laundry Fibers', 'Microbeads', 'Tire Wear', 'Packaging'],
+                datasets: [{
+                    data: [fibers, beads, tires * 100, pack * 100],
+                    backgroundColor: ['#0284c7', '#0d9488', '#f59e0b', '#ef4444']
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { title: { display: true, text: 'Microplastic Sources' } } }
+        });
+
+        const ctxRadar = document.getElementById('radarChart').getContext('2d');
+        radarChartInst = new Chart(ctxRadar, {
+            type: 'radar',
+            data: {
+                labels: ['Textiles', 'Cosmetics', 'Transport', 'Packaging', 'Indoor Dust'],
+                datasets: [{
+                    label: 'Microplastic Risk Profile',
+                    data: [fibers / 10, beads / 5, tires * 10, pack * 5, 35],
+                    borderColor: '#0284c7',
+                    backgroundColor: 'rgba(2, 132, 199, 0.2)'
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+    }
+
+    function downloadImage() {
+        const card = document.getElementById('reportCard');
+        html2canvas(card).then(canvas => {
+            const link = document.createElement('a');
+            const student = document.getElementById('studentName').value.replace(/\s+/g, '_');
+            link.download = `${student}_Microplastic_Audit_Report.png`;
+            link.href = canvas.toDataURL();
+            link.click();
+        });
+    }
+
+    function downloadPDF() {
+        const { jsPDF } = window.jspdf;
+        const card = document.getElementById('reportCard');
+        html2canvas(card).then(canvas => {
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const imgProps = pdf.getImageProperties(imgData);
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+            pdf.addImage(imgData, 'PNG', 0, 10, pdfWidth, pdfHeight);
+            const student = document.getElementById('studentName').value.replace(/\s+/g, '_');
+            pdf.save(`${student}_Microplastic_Audit_Report.pdf`);
+        });
+    }
+</script>
+
+</body>
+</html>
