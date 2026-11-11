@@ -194,6 +194,7 @@
 
         let konsensusVeriler = [];
         let aiDenemeVerileri = {};
+        let kaydetmeZamanAsimi = null; // Son değişikliği kaçırmamak için geciktirici (debounce)
 
         document.addEventListener("DOMContentLoaded", () => {
             githubDepodanOku();
@@ -256,84 +257,87 @@
                 });
         }
 
-        // GitHub deposuna Excel dosyasını otomatik yazma / güncelleme
+        // GitHub deposuna Excel dosyasını otomatik yazma / güncelleme (Debounce ile güvenli)
         function githubDepoyaKaydet() {
-            let token = localStorage.getItem("github_pat_token");
-            if (!token) {
-                console.warn("GitHub Token girilmediği için depo güncellenemedi. Lütfen 'GitHub Token Ayarla' butonunu kullanın.");
-                return;
-            }
+            clearTimeout(kaydetmeZamanAsimi);
+            kaydetmeZamanAsimi = setTimeout(() => {
+                let token = localStorage.getItem("github_pat_token");
+                if (!token) {
+                    console.warn("GitHub Token girilmediği için depo güncellenemedi. Lütfen 'GitHub Token Ayarla' butonunu kullanın.");
+                    return;
+                }
 
-            let excelVeriSatirlari = [];
-            konsensusVeriler.forEach(item => {
-                let trials = aiDenemeVerileri[item.numuneNo] || [];
-                let dogruSayisi = 0;
-                let dolu = 0;
+                let excelVeriSatirlari = [];
+                konsensusVeriler.forEach(item => {
+                    let trials = aiDenemeVerileri[item.numuneNo] || [];
+                    let dogruSayisi = 0;
+                    let dolu = 0;
 
-                trials.forEach(t => {
-                    if (t.teshis && t.teshis.trim() !== "") {
-                        dolu++;
-                        if (t.teshis.toLowerCase().trim() === item.konsensusKarar.toLowerCase().trim()) {
-                            dogruSayisi++;
+                    trials.forEach(t => {
+                        if (t.teshis && t.teshis.trim() !== "") {
+                            dolu++;
+                            if (t.teshis.toLowerCase().trim() === item.konsensusKarar.toLowerCase().trim()) {
+                                dogruSayisi++;
+                            }
                         }
-                    }
-                });
-
-                let yuzdeOran = dolu > 0 ? Math.round((dogruSayisi / dolu) * 100) : 0;
-
-                excelVeriSatirlari.push({
-                    "Numune No": item.numuneNo,
-                    "Uzman Konsensüs Kararı": item.konsensusKarar,
-                    "Uzman İlacı": item.konsensusIlac,
-                    "YZ Teşhis 1": trials[0] ? trials[0].teshis : "",
-                    "YZ İlaç 1": trials[0] ? trials[0].ilac : "",
-                    "YZ Teşhis 2": trials[1] ? trials[1].teshis : "",
-                    "YZ İlaç 2": trials[1] ? trials[1].ilac : "",
-                    "YZ Teşhis 3": trials[2] ? trials[2].teshis : "",
-                    "YZ İlaç 3": trials[2] ? trials[2].ilac : "",
-                    "YZ Teşhis 4": trials[3] ? trials[3].teshis : "",
-                    "YZ İlaç 4": trials[3] ? trials[3].ilac : "",
-                    "YZ Teşhis 5": trials[4] ? trials[4].teshis : "",
-                    "YZ İlaç 5": trials[4] ? trials[4].ilac : "",
-                    "Doğruluk Oranı (%)": yuzdeOran + "%"
-                });
-            });
-
-            let worksheet = XLSX.utils.json_to_sheet(excelVeriSatirlari);
-            let workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, "AI_Deneme_Sonuclari");
-
-            let excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'base64' });
-            let apiUrl = `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${githubFilePath}`;
-
-            // Önce mevcut dosyanın SHA değerini al (GitHub API güncelleme için SHA zorunlu kılar)
-            fetch(apiUrl)
-                .then(res => res.ok ? res.json() : Promise.resolve({ sha: null }))
-                .then(fileData => {
-                    let sha = fileData.sha || null;
-                    let bodyData = {
-                        message: "AgroMap AI: Otomatik YZ deneme sonuçları güncellendi",
-                        content: excelBuffer,
-                        sha: sha
-                    };
-
-                    return fetch(apiUrl, {
-                        method: 'PUT',
-                        headers: {
-                            'Authorization': `token ${token}`,
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(bodyData)
                     });
-                })
-                .then(response => {
-                    if (response.ok) {
-                        console.log("GitHub deposu başarıyla güncellendi.");
-                    } else {
-                        console.error("GitHub deposu güncellenirken hata oluştu.");
-                    }
-                })
-                .catch(err => console.error("GitHub kayıt hatası:", err));
+
+                    let yuzdeOran = dolu > 0 ? Math.round((dogruSayisi / dolu) * 100) : 0;
+
+                    excelVeriSatirlari.push({
+                        "Numune No": item.numuneNo,
+                        "Uzman Konsensüs Kararı": item.konsensusKarar,
+                        "Uzman İlacı": item.konsensusIlac,
+                        "YZ Teşhis 1": trials[0] ? trials[0].teshis : "",
+                        "YZ İlaç 1": trials[0] ? trials[0].ilac : "",
+                        "YZ Teşhis 2": trials[1] ? trials[1].teshis : "",
+                        "YZ İlaç 2": trials[1] ? trials[1].ilac : "",
+                        "YZ Teşhis 3": trials[2] ? trials[2].teshis : "",
+                        "YZ İlaç 3": trials[2] ? trials[2].ilac : "",
+                        "YZ Teşhis 4": trials[3] ? trials[3].teshis : "",
+                        "YZ İlaç 4": trials[3] ? trials[3].ilac : "",
+                        "YZ Teşhis 5": trials[4] ? trials[4].teshis : "",
+                        "YZ İlaç 5": trials[4] ? trials[4].ilac : "",
+                        "Doğruluk Oranı (%)": yuzdeOran + "%"
+                    });
+                });
+
+                let worksheet = XLSX.utils.json_to_sheet(excelVeriSatirlari);
+                let workbook = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(workbook, worksheet, "AI_Deneme_Sonuclari");
+
+                let excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'base64' });
+                let apiUrl = `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${githubFilePath}`;
+
+                // Önce mevcut dosyanın SHA değerini al (GitHub API güncelleme için SHA zorunlu kılar)
+                fetch(apiUrl)
+                    .then(res => res.ok ? res.json() : Promise.resolve({ sha: null }))
+                    .then(fileData => {
+                        let sha = fileData.sha || null;
+                        let bodyData = {
+                            message: "AgroMap AI: Otomatik YZ deneme sonuçları güncellendi",
+                            content: excelBuffer,
+                            sha: sha
+                        };
+
+                        return fetch(apiUrl, {
+                            method: 'PUT',
+                            headers: {
+                                'Authorization': `token ${token}`,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(bodyData)
+                        });
+                    })
+                    .then(response => {
+                        if (response.ok) {
+                            console.log("GitHub deposu başarıyla güncellendi (Son değişiklik dahil).");
+                        } else {
+                            console.error("GitHub deposu güncellenirken hata oluştu.");
+                        }
+                    })
+                    .catch(err => console.error("GitHub kayıt hatası:", err));
+            }, 800); // 0.8 saniye bekleme süresi
         }
 
         function verileriCek() {
