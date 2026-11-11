@@ -57,7 +57,8 @@
                             <h3 class="mb-1 text-white">📊 AgroMap AI - Yapay Zekâ Konsensüs ve 5'li Deneme Doğruluk Paneli</h3>
                             <p class="mb-0 text-white small">Uzman konsensüsü sağlanan numuneler üzerinde 5'li YZ test denemeleri (GitHub Depo Entegrasyonlu).</p>
                         </div>
-                        <div class="d-flex gap-2 no-print">
+                        <div class="d-flex gap-2 no-print flex-wrap">
+                            <button onclick="githubDepoyaKaydetManuel()" class="btn btn-light text-danger fw-bold px-3 btn-sm shadow-sm" id="kaydetBtn">💾 Değişiklikleri GitHub'a Kaydet</button>
                             <button onclick="githubTokenAyarla()" class="btn btn-warning text-dark fw-bold px-3 btn-sm">🔑 GitHub Token Ayarla</button>
                             <button onclick="githubDepodanOku()" class="btn btn-light text-success fw-bold px-3 btn-sm">📂 GitHub'dan Oku</button>
                             <button onclick="verileriCek()" class="btn btn-light text-success fw-bold px-3 btn-sm">🔄 Verileri Yenile</button>
@@ -194,7 +195,6 @@
 
         let konsensusVeriler = [];
         let aiDenemeVerileri = {};
-        let kaydetmeZamanAsimi = null; // Son değişikliği kaçırmamak için geciktirici (debounce)
 
         document.addEventListener("DOMContentLoaded", () => {
             githubDepodanOku();
@@ -257,87 +257,96 @@
                 });
         }
 
-        // GitHub deposuna Excel dosyasını otomatik yazma / güncelleme (Debounce ile güvenli)
-        function githubDepoyaKaydet() {
-            clearTimeout(kaydetmeZamanAsimi);
-            kaydetmeZamanAsimi = setTimeout(() => {
-                let token = localStorage.getItem("github_pat_token");
-                if (!token) {
-                    console.warn("GitHub Token girilmediği için depo güncellenemedi. Lütfen 'GitHub Token Ayarla' butonunu kullanın.");
-                    return;
-                }
+        // Manuel Kaydet Butonu Fonksiyonu (Garanti Yolu)
+        function githubDepoyaKaydetManuel() {
+            let token = localStorage.getItem("github_pat_token");
+            if (!token) {
+                alert("Önce üst menüden '🔑 GitHub Token Ayarla' butonuna tıklayarak token girmeniz gerekmektedir!");
+                return;
+            }
 
-                let excelVeriSatirlari = [];
-                konsensusVeriler.forEach(item => {
-                    let trials = aiDenemeVerileri[item.numuneNo] || [];
-                    let dogruSayisi = 0;
-                    let dolu = 0;
+            let btn = document.getElementById("kaydetBtn");
+            let eskiMetin = btn.innerText;
+            btn.innerText = "⏳ Kaydediliyor...";
+            btn.disabled = true;
 
-                    trials.forEach(t => {
-                        if (t.teshis && t.teshis.trim() !== "") {
-                            dolu++;
-                            if (t.teshis.toLowerCase().trim() === item.konsensusKarar.toLowerCase().trim()) {
-                                dogruSayisi++;
-                            }
+            let excelVeriSatirlari = [];
+            konsensusVeriler.forEach(item => {
+                let trials = aiDenemeVerileri[item.numuneNo] || [];
+                let dogruSayisi = 0;
+                let dolu = 0;
+
+                trials.forEach(t => {
+                    if (t.teshis && t.teshis.trim() !== "") {
+                        dolu++;
+                        if (t.teshis.toLowerCase().trim() === item.konsensusKarar.toLowerCase().trim()) {
+                            dogruSayisi++;
                         }
-                    });
-
-                    let yuzdeOran = dolu > 0 ? Math.round((dogruSayisi / dolu) * 100) : 0;
-
-                    excelVeriSatirlari.push({
-                        "Numune No": item.numuneNo,
-                        "Uzman Konsensüs Kararı": item.konsensusKarar,
-                        "Uzman İlacı": item.konsensusIlac,
-                        "YZ Teşhis 1": trials[0] ? trials[0].teshis : "",
-                        "YZ İlaç 1": trials[0] ? trials[0].ilac : "",
-                        "YZ Teşhis 2": trials[1] ? trials[1].teshis : "",
-                        "YZ İlaç 2": trials[1] ? trials[1].ilac : "",
-                        "YZ Teşhis 3": trials[2] ? trials[2].teshis : "",
-                        "YZ İlaç 3": trials[2] ? trials[2].ilac : "",
-                        "YZ Teşhis 4": trials[3] ? trials[3].teshis : "",
-                        "YZ İlaç 4": trials[3] ? trials[3].ilac : "",
-                        "YZ Teşhis 5": trials[4] ? trials[4].teshis : "",
-                        "YZ İlaç 5": trials[4] ? trials[4].ilac : "",
-                        "Doğruluk Oranı (%)": yuzdeOran + "%"
-                    });
+                    }
                 });
 
-                let worksheet = XLSX.utils.json_to_sheet(excelVeriSatirlari);
-                let workbook = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(workbook, worksheet, "AI_Deneme_Sonuclari");
+                let yuzdeOran = dolu > 0 ? Math.round((dogruSayisi / dolu) * 100) : 0;
 
-                let excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'base64' });
-                let apiUrl = `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${githubFilePath}`;
+                excelVeriSatirlari.push({
+                    "Numune No": item.numuneNo,
+                    "Uzman Konsensüs Kararı": item.konsensusKarar,
+                    "Uzman İlacı": item.konsensusIlac,
+                    "YZ Teşhis 1": trials[0] ? trials[0].teshis : "",
+                    "YZ İlaç 1": trials[0] ? trials[0].ilac : "",
+                    "YZ Teşhis 2": trials[1] ? trials[1].teshis : "",
+                    "YZ İlaç 2": trials[1] ? trials[1].ilac : "",
+                    "YZ Teşhis 3": trials[2] ? trials[2].teshis : "",
+                    "YZ İlaç 3": trials[2] ? trials[2].ilac : "",
+                    "YZ Teşhis 4": trials[3] ? trials[3].teshis : "",
+                    "YZ İlaç 4": trials[3] ? trials[3].ilac : "",
+                    "YZ Teşhis 5": trials[4] ? trials[4].teshis : "",
+                    "YZ İlaç 5": trials[4] ? trials[4].ilac : "",
+                    "Doğruluk Oranı (%)": yuzdeOran + "%"
+                });
+            });
 
-                // Önce mevcut dosyanın SHA değerini al (GitHub API güncelleme için SHA zorunlu kılar)
-                fetch(apiUrl)
-                    .then(res => res.ok ? res.json() : Promise.resolve({ sha: null }))
-                    .then(fileData => {
-                        let sha = fileData.sha || null;
-                        let bodyData = {
-                            message: "AgroMap AI: Otomatik YZ deneme sonuçları güncellendi",
-                            content: excelBuffer,
-                            sha: sha
-                        };
+            let worksheet = XLSX.utils.json_to_sheet(excelVeriSatirlari);
+            let workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "AI_Deneme_Sonuclari");
 
-                        return fetch(apiUrl, {
-                            method: 'PUT',
-                            headers: {
-                                'Authorization': `token ${token}`,
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify(bodyData)
-                        });
-                    })
-                    .then(response => {
-                        if (response.ok) {
-                            console.log("GitHub deposu başarıyla güncellendi (Son değişiklik dahil).");
-                        } else {
-                            console.error("GitHub deposu güncellenirken hata oluştu.");
-                        }
-                    })
-                    .catch(err => console.error("GitHub kayıt hatası:", err));
-            }, 800); // 0.8 saniye bekleme süresi
+            let excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'base64' });
+            let apiUrl = `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${githubFilePath}`;
+
+            // En güncel SHA değerini alarak GitHub'a gönder
+            fetch(apiUrl)
+                .then(res => res.ok ? res.json() : Promise.resolve({ sha: null }))
+                .then(fileData => {
+                    let sha = fileData.sha || null;
+                    let bodyData = {
+                        message: "AgroMap AI: Son YZ deneme sonuçları manuel olarak kaydedildi",
+                        content: excelBuffer,
+                        sha: sha
+                    };
+
+                    return fetch(apiUrl, {
+                        method: 'PUT',
+                        headers: {
+                            'Authorization': `token ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(bodyData)
+                    });
+                })
+                .then(response => {
+                    btn.innerText = eskiMetin;
+                    btn.disabled = false;
+                    if (response.ok) {
+                        alert("✅ Tüm değişiklikler (en son yaptığınız dahil) başarıyla GitHub deposuna kaydedildi!");
+                    } else {
+                        alert("❌ Kaydetme sırasında hata oluştu. Token yetkinizi kontrol edin.");
+                    }
+                })
+                .catch(err => {
+                    btn.innerText = eskiMetin;
+                    btn.disabled = false;
+                    console.error("GitHub kayıt hatası:", err);
+                    alert("❌ Bağlantı hatası oluştu.");
+                });
         }
 
         function verileriCek() {
@@ -609,7 +618,6 @@
             }
 
             aiDenemeVerileri[numuneNo] = trialVerileri;
-            githubDepoyaKaydet();
 
             let yuzdeOran = toplamDolu > 0 ? Math.round((dogruSayisi / toplamDolu) * 100) : 0;
             let badgeEl = document.getElementById(`dogruluk-badge-${numuneNo}`);
