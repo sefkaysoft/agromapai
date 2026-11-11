@@ -6,7 +6,7 @@
     <title>AgroMap AI - Yapay Zekâ Doğruluk ve Konsensüs Sonuç Yönetimi</title>
     <!-- Bootstrap 5 CSS CDN -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- SheetJS (xlsx) Kütüphanesi - Excel Dosya Okuma ve Yazma İçin -->
+    <!-- SheetJS (xlsx) Kütüphanesi -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         .image-container {
@@ -55,10 +55,11 @@
                     <div class="card-body p-3 p-md-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
                         <div>
                             <h3 class="mb-1 text-white">📊 AgroMap AI - Yapay Zekâ Konsensüs ve 5'li Deneme Doğruluk Paneli</h3>
-                            <p class="mb-0 text-white small">Uzman konsensüsü sağlanan numuneler üzerinde 5'li YZ test denemeleri (Sunucu Excel Entegrasyonlu).</p>
+                            <p class="mb-0 text-white small">Uzman konsensüsü sağlanan numuneler üzerinde 5'li YZ test denemeleri (GitHub Depo Entegrasyonlu).</p>
                         </div>
                         <div class="d-flex gap-2 no-print">
-                            <button onclick="sunucuExcelDosyasindanOku()" class="btn btn-light text-success fw-bold px-3 btn-sm">📂 Sunucu Excel'den Oku</button>
+                            <button onclick="githubTokenAyarla()" class="btn btn-warning text-dark fw-bold px-3 btn-sm">🔑 GitHub Token Ayarla</button>
+                            <button onclick="githubDepodanOku()" class="btn btn-light text-success fw-bold px-3 btn-sm">📂 GitHub'dan Oku</button>
                             <button onclick="verileriCek()" class="btn btn-light text-success fw-bold px-3 btn-sm">🔄 Verileri Yenile</button>
                             <button onclick="window.print()" class="btn btn-dark fw-bold px-3 btn-sm">📥 Yazdır / PDF İndir</button>
                         </div>
@@ -142,6 +143,10 @@
     <script>
         const konsensusScriptURL = "https://script.google.com/macros/s/AKfycbwUZ9N5uRyt5y6_klBlGZGwhxupNNS7N4ZqXRZPEKXS00Vh1Tg5Oo3IhwpLcUQHrfA76Q/exec";
         
+        const githubOwner = "sefkaysoft";
+        const githubRepo = "agromapai";
+        const githubFilePath = "AI_Deneme_Sonuclari.xlsx";
+
         const olasiUzantilar = [".jpg", ".jpeg", ".png", ".webp", ".avif", ".JPG", ".JPEG", ".PNG", ".WEBP", ".AVIF"];
 
         const patojenListesiSecenekleri = [
@@ -191,20 +196,37 @@
         let aiDenemeVerileri = {};
 
         document.addEventListener("DOMContentLoaded", () => {
-            sunucuExcelDosyasindanOku();
+            githubDepodanOku();
             verileriCek();
         });
 
-        // Aynı klasördeki sunucu Excel dosyasını (AI_Deneme_Sonuclari.xlsx) otomatik okuma
-        function sunucuExcelDosyasindanOku() {
-            fetch('AI_Deneme_Sonuclari.xlsx')
+        function githubTokenAyarla() {
+            let mevcutToken = localStorage.getItem("github_pat_token") || "";
+            let yeniToken = prompt("GitHub Personal Access Token (PAT) anahtarınızı giriniz (Depoya yazma yetkisi olmalı):", mevcutToken);
+            if (yeniToken !== null) {
+                localStorage.setItem("github_pat_token", yeniToken.trim());
+                alert("GitHub Token başarıyla kaydedildi!");
+            }
+        }
+
+        // GitHub deposundan Excel dosyasını okuma
+        function githubDepodanOku() {
+            let apiUrl = `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${githubFilePath}`;
+            
+            fetch(apiUrl)
                 .then(response => {
-                    if (!response.ok) throw new Error("Excel dosyası henüz sunucuda bulunamadı.");
-                    return response.arrayBuffer();
+                    if (!response.ok) throw new Error("GitHub deposunda dosya bulunamadı.");
+                    return response.json();
                 })
-                .then(buffer => {
-                    let data = new Uint8Array(buffer);
-                    let workbook = XLSX.read(data, { type: 'array' });
+                .then(fileData => {
+                    let binaryString = atob(fileData.content);
+                    let len = binaryString.length;
+                    let bytes = new Uint8Array(len);
+                    for (let i = 0; i < len; i++) {
+                        bytes[i] = binaryString.charCodeAt(i);
+                    }
+                    
+                    let workbook = XLSX.read(bytes.buffer, { type: 'array' });
                     let firstSheetName = workbook.SheetNames[0];
                     let worksheet = workbook.Sheets[firstSheetName];
                     let jsonRows = XLSX.utils.sheet_to_json(worksheet);
@@ -227,16 +249,96 @@
                         tabloyuCiz(konsensusVeriler);
                         istatistikGuncelle();
                     }
-                    console.log("Sunucu Excel dosyasından veriler başarıyla okundu.");
+                    console.log("GitHub deposundan Excel verileri başarıyla okundu.");
                 })
-                .catch(error => {
-                    console.log("Bilgi: Sunucuda henüz AI_Deneme_Sonuclari.xlsx bulunamadı (ilk kayıtla oluşturulacak).");
+                .catch(err => {
+                    console.log("Bilgi: GitHub deposunda henüz dosya yok veya erişilemedi.");
                 });
+        }
+
+        // GitHub deposuna Excel dosyasını otomatik yazma / güncelleme
+        function githubDepoyaKaydet() {
+            let token = localStorage.getItem("github_pat_token");
+            if (!token) {
+                console.warn("GitHub Token girilmediği için depo güncellenemedi. Lütfen 'GitHub Token Ayarla' butonunu kullanın.");
+                return;
+            }
+
+            let excelVeriSatirlari = [];
+            konsensusVeriler.forEach(item => {
+                let trials = aiDenemeVerileri[item.numuneNo] || [];
+                let dogruSayisi = 0;
+                let dolu = 0;
+
+                trials.forEach(t => {
+                    if (t.teshis && t.teshis.trim() !== "") {
+                        dolu++;
+                        if (t.teshis.toLowerCase().trim() === item.konsensusKarar.toLowerCase().trim()) {
+                            dogruSayisi++;
+                        }
+                    }
+                });
+
+                let yuzdeOran = dolu > 0 ? Math.round((dogruSayisi / dolu) * 100) : 0;
+
+                excelVeriSatirlari.push({
+                    "Numune No": item.numuneNo,
+                    "Uzman Konsensüs Kararı": item.konsensusKarar,
+                    "Uzman İlacı": item.konsensusIlac,
+                    "YZ Teşhis 1": trials[0] ? trials[0].teshis : "",
+                    "YZ İlaç 1": trials[0] ? trials[0].ilac : "",
+                    "YZ Teşhis 2": trials[1] ? trials[1].teshis : "",
+                    "YZ İlaç 2": trials[1] ? trials[1].ilac : "",
+                    "YZ Teşhis 3": trials[2] ? trials[2].teshis : "",
+                    "YZ İlaç 3": trials[2] ? trials[2].ilac : "",
+                    "YZ Teşhis 4": trials[3] ? trials[3].teshis : "",
+                    "YZ İlaç 4": trials[3] ? trials[3].ilac : "",
+                    "YZ Teşhis 5": trials[4] ? trials[4].teshis : "",
+                    "YZ İlaç 5": trials[4] ? trials[4].ilac : "",
+                    "Doğruluk Oranı (%)": yuzdeOran + "%"
+                });
+            });
+
+            let worksheet = XLSX.utils.json_to_sheet(excelVeriSatirlari);
+            let workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "AI_Deneme_Sonuclari");
+
+            let excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'base64' });
+            let apiUrl = `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${githubFilePath}`;
+
+            // Önce mevcut dosyanın SHA değerini al (GitHub API güncelleme için SHA zorunlu kılar)
+            fetch(apiUrl)
+                .then(res => res.ok ? res.json() : Promise.resolve({ sha: null }))
+                .then(fileData => {
+                    let sha = fileData.sha || null;
+                    let bodyData = {
+                        message: "AgroMap AI: Otomatik YZ deneme sonuçları güncellendi",
+                        content: excelBuffer,
+                        sha: sha
+                    };
+
+                    return fetch(apiUrl, {
+                        method: 'PUT',
+                        headers: {
+                            'Authorization': `token ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(bodyData)
+                    });
+                })
+                .then(response => {
+                    if (response.ok) {
+                        console.log("GitHub deposu başarıyla güncellendi.");
+                    } else {
+                        console.error("GitHub deposu güncellenirken hata oluştu.");
+                    }
+                })
+                .catch(err => console.error("GitHub kayıt hatası:", err));
         }
 
         function verileriCek() {
             let tbody = document.getElementById("tabloGovdesi");
-            tbody.innerHTML = `<tr><td colspan="10" class="text-center py-4 text-muted">Google Sheets ve Sunucu Excel kayıtları alınıyor...</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="10" class="text-center py-4 text-muted">Google Sheets ve GitHub kayıtları alınıyor...</td></tr>`;
 
             fetch(konsensusScriptURL)
                 .then(response => response.json())
@@ -340,7 +442,7 @@
 
         function bitirVeriHazirlik() {
             konsensusVeriler.sort((a, b) => (parseInt(a.numuneNo) || 0) - (parseInt(b.numuneNo) || 0));
-            sunucuExcelDosyasindanOku(); // Önce sunucudaki excel verisini al
+            githubDepodanOku();
             tabloyuCiz(konsensusVeriler);
             istatistikGuncelle();
         }
@@ -503,7 +605,7 @@
             }
 
             aiDenemeVerileri[numuneNo] = trialVerileri;
-            sunucuExcelDosyasinaKaydet();
+            githubDepoyaKaydet();
 
             let yuzdeOran = toplamDolu > 0 ? Math.round((dogruSayisi / toplamDolu) * 100) : 0;
             let badgeEl = document.getElementById(`dogruluk-badge-${numuneNo}`);
@@ -516,51 +618,6 @@
             }
 
             istatistikGuncelle();
-        }
-
-        function sunucuExcelDosyasinaKaydet() {
-            let excelVeriSatirlari = [];
-            
-            konsensusVeriler.forEach(item => {
-                let trials = aiDenemeVerileri[item.numuneNo] || [];
-                let dogruSayisi = 0;
-                let dolu = 0;
-
-                trials.forEach(t => {
-                    if (t.teshis && t.teshis.trim() !== "") {
-                        dolu++;
-                        if (t.teshis.toLowerCase().trim() === item.konsensusKarar.toLowerCase().trim()) {
-                            dogruSayisi++;
-                        }
-                    }
-                });
-
-                let yuzdeOran = dolu > 0 ? Math.round((dogruSayisi / dolu) * 100) : 0;
-
-                excelVeriSatirlari.push({
-                    "Numune No": item.numuneNo,
-                    "Uzman Konsensüs Kararı": item.konsensusKarar,
-                    "Uzman İlacı": item.konsensusIlac,
-                    "YZ Teşhis 1": trials[0] ? trials[0].teshis : "",
-                    "YZ İlaç 1": trials[0] ? trials[0].ilac : "",
-                    "YZ Teşhis 2": trials[1] ? trials[1].teshis : "",
-                    "YZ İlaç 2": trials[1] ? trials[1].ilac : "",
-                    "YZ Teşhis 3": trials[2] ? trials[2].teshis : "",
-                    "YZ İlaç 3": trials[2] ? trials[2].ilac : "",
-                    "YZ Teşhis 4": trials[3] ? trials[3].teshis : "",
-                    "YZ İlaç 4": trials[3] ? trials[3].ilac : "",
-                    "YZ Teşhis 5": trials[4] ? trials[4].teshis : "",
-                    "YZ İlaç 5": trials[4] ? trials[4].ilac : "",
-                    "Doğruluk Oranı (%)": yuzdeOran + "%"
-                });
-            });
-
-            let worksheet = XLSX.utils.json_to_sheet(excelVeriSatirlari);
-            let workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, "AI_Deneme_Sonuclari");
-
-            // Sunucu klasörüne kaydetme tetikleyicisi
-            XLSX.writeFile(workbook, "AI_Deneme_Sonuclari.xlsx");
         }
 
         function istatistikGuncelle() {
