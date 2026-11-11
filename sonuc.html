@@ -97,6 +97,20 @@
             </div>
         </div>
 
+        <!-- HASTALIK / PATOJEN BAZLI BAŞARI GRAFİK ALANI -->
+        <div class="row mb-3">
+            <div class="col-12">
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-dark text-white py-2">
+                        <h6 class="mb-0 fw-bold text-white" style="font-size: 0.85rem;">📈 Hastalık Türlerine Göre Yapay Zekâ Doğruluk Dağılımı ve Bar Grafiği</h6>
+                    </div>
+                    <div class="card-body p-3 bg-white" id="hastalikGrafikAlani">
+                        <span class="text-muted small">Henüz test verisi girilmedi.</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- TABLO ALANI -->
         <div class="card shadow">
             <div class="card-header bg-success py-2 text-white">
@@ -149,6 +163,18 @@
         const githubFilePath = "AI_Deneme_Sonuclari.xlsx";
 
         const olasiUzantilar = [".jpg", ".jpeg", ".png", ".webp", ".avif", ".JPG", ".JPEG", ".PNG", ".WEBP", ".AVIF"];
+
+        // Soft satır renkleri dizisi
+        const softSatirRenkleri = [
+            "#f9fcff", // Çok hafif mavi
+            "#f4fbf7", // Çok hafif yeşil
+            "#fffdf4", // Çok hafif sarı
+            "#fdf4f9", // Çok hafif pembe
+            "#f6f4ff", // Çok hafif mor
+            "#fff6f4", // Çok hafif turuncu
+            "#f4fbff", // Soft camgöbeği
+            "#fafafc"  // Soft gri-beyaz
+        ];
 
         const patojenListesiSecenekleri = [
             "Karaleke / Karakutak (Venturia pirina)",
@@ -485,7 +511,7 @@
                 return;
             }
 
-            veriListesi.forEach((item) => {
+            veriListesi.forEach((item, index) => {
                 let formatliNumara = String(item.numuneNo).padStart(3, '0');
                 let savedTrials = aiDenemeVerileri[item.numuneNo] || [
                     { teshis: "", ilac: "" },
@@ -496,6 +522,10 @@
                 ];
 
                 let tr = document.createElement("tr");
+                // Her satıra farklı soft renk atama
+                let arkaPlanRengi = softSatirRenkleri[index % softSatirRenkleri.length];
+                tr.style.backgroundColor = arkaPlanRengi;
+
                 let trialInputsHTML = "";
                 let dogruSayisi = 0;
                 let toplamDoluDeneme = 0;
@@ -638,7 +668,14 @@
             let toplamBasariYuzdesiToplami = 0;
             let toplamDenemeSayisi = 0;
 
+            let hastalikIstatistikleri = {};
+
             konsensusVeriler.forEach(item => {
+                let patojenAdi = item.konsensusKarar;
+                if (!hastalikIstatistikleri[patojenAdi]) {
+                    hastalikIstatistikleri[patojenAdi] = { dogru: 0, toplam: 0 };
+                }
+
                 let trials = aiDenemeVerileri[item.numuneNo];
                 if (trials) {
                     let dolu = trials.filter(t => t.teshis && t.teshis.trim() !== "").length;
@@ -647,6 +684,9 @@
                         let dogru = trials.filter(t => t.teshis && t.teshis.toLowerCase().trim() === item.konsensusKarar.toLowerCase().trim()).length;
                         toplamBasariYuzdesiToplami += (dogru / dolu) * 100;
                         toplamDenemeSayisi += dolu;
+
+                        hastalikIstatistikleri[patojenAdi].dogru += dogru;
+                        hastalikIstatistikleri[patojenAdi].toplam += dolu;
                     }
                 }
             });
@@ -657,6 +697,42 @@
             document.getElementById("statTestEdilen").innerText = testEdilen;
             document.getElementById("statOrtalamaBasari").innerText = `%${ortalamaBasari}`;
             document.getElementById("statToplamDeneme").innerText = toplamDenemeSayisi;
+
+            // Hastalık Bazlı Bar Grafiğini Çiz
+            hastalikGrafikCiz(hastalikIstatistikleri);
+        }
+
+        function hastalikGrafikCiz(istatistikler) {
+            let grafikAlani = document.getElementById("hastalikGrafikAlani");
+            let anahtarlar = Object.keys(istatistikler);
+
+            if (anahtarlar.length === 0) {
+                grafikAlani.innerHTML = `<span class="text-muted small">Henüz test verisi girilmedi.</span>`;
+                return;
+            }
+
+            let html = `<div class="row g-3">`;
+            anahtarlar.forEach(hastalik => {
+                let veri = istatistikler[hastalik];
+                let oran = veri.toplam > 0 ? Math.round((veri.dogru / veri.toplam) * 100) : 0;
+                let renk = oran >= 80 ? 'bg-success' : (oran >= 50 ? 'bg-warning' : 'bg-danger');
+
+                html += `
+                    <div class="col-md-4 col-12">
+                        <div class="p-2 border rounded bg-light">
+                            <div class="d-flex justify-content-between mb-1" style="font-size: 0.75rem;">
+                                <span class="fw-bold text-dark text-truncate" style="max-width: 75%;" title="${hastalik}">🦠 ${hastalik}</span>
+                                <span class="fw-bold text-success">%${oran} (${veri.dogru}/${veri.toplam})</span>
+                            </div>
+                            <div class="progress" style="height: 8px;">
+                                <div class="progress-bar ${renk}" role="progressbar" style="width: ${oran}%;" aria-valuenow="${oran}" aria-valuemin="0" aria-valuemax="100"></div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            html += `</div>`;
+            grafikAlani.innerHTML = html;
         }
 
         function buyukGorselAc(yol, baslik) {
