@@ -452,7 +452,8 @@
                 }
 
                 let patojenOrani = toplamOy > 0 ? Math.round((maxPatojenOy / toplamOy) * 100) : 0;
-                let konsensusOlustu = (toplamOy >= 4 && patojenOrani >= 80);
+                // Konsensüs şartı: Uzman sayısından bağımsız olarak %80 ve üzeri uzlaşı sağlanmış olması yeterlidir.
+                let konsensusOlustu = (toplamOy > 0 && patojenOrani >= 80);
 
                 if (konsensusOlustu) {
                     bulGorselUzantisi(id, (bulunanYol) => {
@@ -507,7 +508,7 @@
             tbody.innerHTML = "";
 
             if (veriListesi.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="10" class="text-center py-4 text-muted">Henüz konsensüs sağlayan (%80 ve üzeri) numune bulunamadı.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="10" class="text-center py-4 text-muted">Henüz %80 ve üzeri konsensüs sağlayan numune bulunamadı.</td></tr>`;
                 return;
             }
 
