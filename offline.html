@@ -158,7 +158,7 @@
                                     <tr>
                                         <td class="fw-bold">Genel Doğruluk (Accuracy)</td>
                                         <td class="text-center fw-bold text-success" id="valAccuracy">%0</td>
-                                        <td>Doğru sınıflandırılan numunelerin toplam numuneye (150) oranı.</td>
+                                        <td>Doğru sınıflandırılan numunelerin toplam numuneye oranı.</td>
                                     </tr>
                                     <tr>
                                         <td class="fw-bold">Hassasiyet (Precision)</td>
@@ -779,12 +779,19 @@
             let toplamYanlisSayisi = 0;
             let toplamDenemeDolu = 0;
 
+            // Sınıf bazlı TP, FP, FN hesaplama (Macro-Average Precision & Recall için)
+            let classMetrics = {};
+
             konsensusVeriler.forEach(item => {
                 let patojenAdi = item.konsensusKarar;
                 if (!hastalikIstatistikleri[patojenAdi]) {
                     hastalikIstatistikleri[patojenAdi] = { dogru: 0, toplam: 0, numuneSayisi: 0 };
                 }
                 hastalikIstatistikleri[patojenAdi].numuneSayisi++;
+
+                if (!classMetrics[patojenAdi]) {
+                    classMetrics[patojenAdi] = { tp: 0, fp: 0, fn: 0 };
+                }
 
                 let trials = aiDenemeVerileri[item.numuneNo];
                 if (trials) {
@@ -802,6 +809,22 @@
 
                         hastalikIstatistikleri[patojenAdi].dogru += dogru;
                         hastalikIstatistikleri[patojenAdi].toplam += dolu;
+
+                        // Hassasiyet ve Duyarlılık için her denemeyi sınıf bazında işle
+                        trials.forEach(t => {
+                            let pred = t.teshis ? t.teshis.trim() : "";
+                            if (pred !== "") {
+                                if (!classMetrics[pred]) {
+                                    classMetrics[pred] = { tp: 0, fp: 0, fn: 0 };
+                                }
+                                if (pred.toLowerCase() === patojenAdi.toLowerCase()) {
+                                    classMetrics[patojenAdi].tp++;
+                                } else {
+                                    classMetrics[patojenAdi].fn++; // Gerçek sınıf kaçırıldı
+                                    classMetrics[pred].fp++;      // Yanlışlıkla bu sınıf tahmin edildi
+                                }
+                            }
+                        });
                     }
                 }
             });
@@ -819,10 +842,29 @@
             document.getElementById("statDogruSayisi").innerText = toplamDogruSayisi;
             document.getElementById("statYanlisSayisi").innerText = toplamYanlisSayisi;
 
-            // Tablo 3 Metrik Hesaplamaları (Accuracy, Precision, Recall, F1)
+            // Tablo 3 Metrik Hesaplamaları (Accuracy, Macro Precision, Macro Recall, F1)
             let accuracy = toplamDenemeDolu > 0 ? (toplamDogruSayisi / toplamDenemeDolu) * 100 : ortalamaBasari;
-            let precision = accuracy; // Çoklu sınıflandırma konsensüs matrisinde ortalama temsil değeri
-            let recall = accuracy;
+            
+            let precisionSum = 0;
+            let recallSum = 0;
+            let activeClassesCount = 0;
+
+            Object.keys(classMetrics).forEach(cls => {
+                let m = classMetrics[cls];
+                let pDenom = m.tp + m.fp;
+                let rDenom = m.tp + m.fn;
+
+                if (pDenom > 0 || rDenom > 0) {
+                    let p = pDenom > 0 ? (m.tp / pDenom) : 0;
+                    let r = rDenom > 0 ? (m.tp / rDenom) : 0;
+                    precisionSum += p;
+                    recallSum += r;
+                    activeClassesCount++;
+                }
+            });
+
+            let precision = activeClassesCount > 0 ? (precisionSum / activeClassesCount) * 100 : accuracy;
+            let recall = activeClassesCount > 0 ? (recallSum / activeClassesCount) * 100 : accuracy;
             let f1 = (precision > 0 && recall > 0) ? (2 * precision * recall) / (precision + recall) : 0;
 
             document.getElementById("valAccuracy").innerText = `%${accuracy.toFixed(1)}`;
@@ -846,7 +888,7 @@
             anahtarlar.forEach(hastalik => {
                 let veri = istatistikler[hastalik];
                 let oran = veri.toplam > 0 ? Math.round((veri.dogru / veri.toplam) * 100) : 0;
-                let renk = oran >= 80 ? 'bg-success' : (oran >= 50 ? 'bg-warning' : 'bg-danger');
+                let renk = oran >= 80 ? 'bg-success' : (oran >= 50 ? 'g-warning' : 'bg-danger');
 
                 let toplamYapilacak = (veri.numuneSayisi || 0) * 5;
                 let yapilanDeneme = veri.toplam || 0;
