@@ -34,6 +34,12 @@
             font-size: 0.75rem;
             padding: 3px 4px;
         }
+        .print-trial-text {
+            display: none;
+            font-size: 0.72rem;
+            line-height: 1.25;
+            word-break: break-word;
+        }
         @media print {
             @page { size: A4 landscape; margin: 10mm; }
             body { background: white !important; font-size: 7.5pt !important; color: #000 !important; }
@@ -41,8 +47,15 @@
             .card { border: none !important; box-shadow: none !important; }
             .card-header { background-color: #198754 !important; color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             .table { width: 100% !important; border-collapse: collapse !important; font-size: 7pt !important; }
-            th, td { padding: 3px !important; vertical-align: middle !important; }
+            th, td { padding: 3px !important; vertical-align: middle !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             .image-container { width: 35px !important; height: 35px !important; }
+            body.yazdirma-modu .ai-trial-select,
+            body.yazdirma-modu .ai-trial-input {
+                display: none !important;
+            }
+            body.yazdirma-modu .print-trial-text.aktif-metin {
+                display: block !important;
+            }
         }
     </style>
 </head>
@@ -57,12 +70,12 @@
                             <h3 class="mb-1 text-white">📊 AgroMap AI - Yapay Zekâ (Offline) Konsensüs ve 5'li Deneme Doğruluk Paneli</h3>
                             <p class="mb-0 text-white small">Uzman konsensüsü sağlanan numuneler üzerinde 5'li YZ test denemeleri (GitHub Depo Entegrasyonlu).</p>
                         </div>
-                        <div class="d-flex gap-2 no-print flex-wrap">
+                        <div class="d-flex gap-2 no-print flex-wrap" id="ustButonGrubu">
                             <button onclick="githubDepoyaKaydetManuel()" class="btn btn-light text-danger fw-bold px-3 btn-sm shadow-sm" id="kaydetBtn">💾 Değişiklikleri GitHub'a Kaydet</button>
-                            <button onclick="githubTokenAyarla()" class="btn btn-warning text-dark fw-bold px-3 btn-sm">🔑 GitHub Token Ayarla</button>
-                            <button onclick="githubDepodanOku()" class="btn btn-light text-success fw-bold px-3 btn-sm">📂 GitHub'dan Oku</button>
-                            <button onclick="verileriCek()" class="btn btn-light text-success fw-bold px-3 btn-sm">🔄 Verileri Yenile</button>
-                            <button onclick="window.print()" class="btn btn-dark fw-bold px-3 btn-sm">📥 Yazdır / PDF İndir</button>
+                            <button onclick="githubTokenAyarla()" class="btn btn-warning text-dark fw-bold px-3 btn-sm" id="tokenBtn">🔑 GitHub Token Ayarla</button>
+                            <button onclick="githubDepodanOku()" class="btn btn-light text-success fw-bold px-3 btn-sm" id="okuBtn">📂 GitHub'dan Oku</button>
+                            <button onclick="verileriCek()" class="btn btn-light text-success fw-bold px-3 btn-sm" id="yenileBtn">🔄 Verileri Yenile</button>
+                            <button onclick="yazdirPdfHazirlaVeBaslat()" class="btn btn-dark fw-bold px-3 btn-sm" id="yazdirBtn">📥 Yazdır / PDF İndir</button>
                         </div>
                     </div>
                 </div>
@@ -300,6 +313,86 @@
                 verileriCek();
             });
         });
+
+        window.addEventListener("afterprint", () => {
+            yazdirmaModunuKapat();
+        });
+
+        function butonDurumlariniGuncelle(toplamDenemeSayisi) {
+            const pasifYap = toplamDenemeSayisi >= 600;
+            const butonlar = document.querySelectorAll("#ustButonGrubu button");
+            butonlar.forEach(btn => {
+                if (btn.id === "yazdirBtn") {
+                    btn.disabled = false;
+                } else {
+                    btn.disabled = pasifYap;
+                }
+            });
+        }
+
+        function yazdirPdfHazirlaVeBaslat() {
+            document.body.classList.add("yazdirma-modu");
+
+            konsensusVeriler.forEach(item => {
+                const hedefKarar = (item.konsensusKarar || "").toLowerCase().trim();
+                for (let i = 0; i < 5; i++) {
+                    const tdEl = document.getElementById(`trial-cell-${item.numuneNo}-${i}`);
+                    const metinEl = document.getElementById(`print-text-${item.numuneNo}-${i}`);
+                    const tSelect = document.querySelector(`.teshis-select-${item.numuneNo}[data-trial='${i}']`);
+                    const tInput = document.querySelector(`.teshis-input-${item.numuneNo}[data-trial='${i}']`);
+                    const iSelect = document.querySelector(`.ilac-select-${item.numuneNo}[data-trial='${i}']`);
+                    const iInput = document.querySelector(`.ilac-input-${item.numuneNo}[data-trial='${i}']`);
+
+                    if (!tdEl || !metinEl || !tSelect || !iSelect) continue;
+
+                    const tVal = (tSelect.value === "Diğer") ? tInput.value.trim() : tSelect.value.trim();
+                    const iVal = (iSelect.value === "Diğer") ? iInput.value.trim() : iSelect.value.trim();
+
+                    if (tVal !== "" || iVal !== "") {
+                        if (!tdEl.dataset.origBg) tdEl.dataset.origBg = tdEl.style.backgroundColor || "";
+                        if (!tdEl.dataset.origBorder) tdEl.dataset.origBorder = tdEl.style.border || "";
+
+                        if (tVal !== "") {
+                            const dogruMu = tVal.toLowerCase().trim() === hedefKarar;
+                            if (dogruMu) {
+                                tdEl.style.backgroundColor = "#d1e7dd";
+                                tdEl.style.border = "1.5px solid #198754";
+                            } else {
+                                tdEl.style.backgroundColor = "#f8d7da";
+                                tdEl.style.border = "1.5px solid #dc3545";
+                            }
+                        }
+
+                        const ilacSatiri = iVal !== "" ? `<div class="text-dark mt-1">💊 ${iVal}</div>` : "";
+                        metinEl.innerHTML = `<div class="fw-bold text-dark">🦠 ${tVal || "-"}</div>${ilacSatiri}`;
+                        metinEl.classList.add("aktif-metin");
+                    }
+                }
+            });
+
+            window.print();
+        }
+
+        function yazdirmaModunuKapat() {
+            document.body.classList.remove("yazdirma-modu");
+
+            konsensusVeriler.forEach(item => {
+                for (let i = 0; i < 5; i++) {
+                    const tdEl = document.getElementById(`trial-cell-${item.numuneNo}-${i}`);
+                    const metinEl = document.getElementById(`print-text-${item.numuneNo}-${i}`);
+                    if (tdEl) {
+                        tdEl.style.backgroundColor = tdEl.dataset.origBg || "";
+                        tdEl.style.border = tdEl.dataset.origBorder || "";
+                        delete tdEl.dataset.origBg;
+                        delete tdEl.dataset.origBorder;
+                    }
+                    if (metinEl) {
+                        metinEl.classList.remove("aktif-metin");
+                        metinEl.innerHTML = "";
+                    }
+                }
+            });
+        }
 
         function githubTokenAyarla() {
             let mevcutToken = localStorage.getItem("github_pat_token") || "";
@@ -735,6 +828,7 @@
 
                     trialInputsHTML += `
                         <td style="${tdBgStyle}" id="trial-cell-${item.numuneNo}-${i}">
+                            <div class="print-trial-text" id="print-text-${item.numuneNo}-${i}"></div>
                             <select class="form-select form-select-sm ai-trial-select mb-1 teshis-select-${item.numuneNo}" data-numune="${item.numuneNo}" data-trial="${i}" onchange="selectDegisti('${item.numuneNo}', ${i}, 'teshis')" ${disabledAttr}>
                                 ${tOptions}
                             </select>
@@ -930,6 +1024,8 @@
             document.getElementById("statKalanDeneme").innerText = kalanDeneme;
             document.getElementById("statDogruSayisi").innerText = toplamDogruSayisi;
             document.getElementById("statYanlisSayisi").innerText = toplamYanlisSayisi;
+
+            butonDurumlariniGuncelle(toplamDenemeSayisi);
 
             // Tablo 3 Metrik Hesaplamaları (Accuracy, Macro Precision, Macro Recall, F1)
             let accuracy = toplamDenemeDolu > 0 ? (toplamDogruSayisi / toplamDenemeDolu) * 100 : ortalamaBasari;
