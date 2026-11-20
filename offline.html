@@ -293,10 +293,12 @@
 
         let konsensusVeriler = [];
         let aiDenemeVerileri = {};
+        let githubYuklendi = false;
 
         document.addEventListener("DOMContentLoaded", () => {
-            githubDepodanOku();
-            verileriCek();
+            githubDepodanOku().finally(() => {
+                verileriCek();
+            });
         });
 
         function githubTokenAyarla() {
@@ -308,50 +310,135 @@
             }
         }
 
+        function normalizeNumuneKey(rawKey) {
+            let cleaned = String(rawKey ?? "").replace(/^#/, "").trim();
+            if (!cleaned) return "";
+            if (/^\d+$/.test(cleaned)) {
+                return String(parseInt(cleaned, 10));
+            }
+            return cleaned;
+        }
+
+        function alaniBul(row, adayAnahtarlar) {
+            for (let key of adayAnahtarlar) {
+                if (row[key] !== undefined && row[key] !== null) {
+                    return String(row[key]).trim();
+                }
+            }
+            let satirAnahtarlari = Object.keys(row);
+            for (let aday of adayAnahtarlar) {
+                let hedef = aday.toLowerCase().replace(/[^a-z0-9ğüşıöç]/gi, "");
+                let eslesen = satirAnahtarlari.find(k => k.toLowerCase().replace(/[^a-z0-9ğüşıöç]/gi, "") === hedef);
+                if (eslesen !== undefined && row[eslesen] !== undefined && row[eslesen] !== null) {
+                    return String(row[eslesen]).trim();
+                }
+            }
+            return "";
+        }
+
+        function excelBufferIsle(arrayBuffer) {
+            let workbook = XLSX.read(arrayBuffer, { type: 'array' });
+            let firstSheetName = workbook.SheetNames[0];
+            let worksheet = workbook.Sheets[firstSheetName];
+            let jsonRows = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+
+            aiDenemeVerileri = {};
+            jsonRows.forEach(row => {
+                let rawNo = alaniBul(row, ["Numune No", "Numune", "numuneNo", "Görsel ID", "ID"]);
+                let numuneKey = normalizeNumuneKey(rawNo);
+                if (numuneKey) {
+                    let trials = [
+                        {
+                            teshis: alaniBul(row, ["YZ Teşhis 1", "YZ Teshis 1", "Teşhis 1", "Teshis 1"]),
+                            ilac: alaniBul(row, ["YZ İlaç 1", "YZ Ilac 1", "İlaç 1", "Ilac 1"])
+                        },
+                        {
+                            teshis: alaniBul(row, ["YZ Teşhis 2", "YZ Teshis 2", "Teşhis 2", "Teshis 2"]),
+                            ilac: alaniBul(row, ["YZ İlaç 2", "YZ Ilac 2", "İlaç 2", "Ilac 2"])
+                        },
+                        {
+                            teshis: alaniBul(row, ["YZ Teşhis 3", "YZ Teshis 3", "Teşhis 3", "Teshis 3"]),
+                            ilac: alaniBul(row, ["YZ İlaç 3", "YZ Ilac 3", "İlaç 3", "Ilac 3"])
+                        },
+                        {
+                            teshis: alaniBul(row, ["YZ Teşhis 4", "YZ Teshis 4", "Teşhis 4", "Teshis 4"]),
+                            ilac: alaniBul(row, ["YZ İlaç 4", "YZ Ilac 4", "İlaç 4", "Ilac 4"])
+                        },
+                        {
+                            teshis: alaniBul(row, ["YZ Teşhis 5", "YZ Teshis 5", "Teşhis 5", "Teshis 5"]),
+                            ilac: alaniBul(row, ["YZ İlaç 5", "YZ Ilac 5", "İlaç 5", "Ilac 5"])
+                        }
+                    ];
+                    aiDenemeVerileri[numuneKey] = trials;
+                    aiDenemeVerileri[String(rawNo).replace(/^#/, "").trim()] = trials;
+                }
+            });
+
+            githubYuklendi = true;
+            console.log("GitHub Excel satır sayısı:", jsonRows.length, "Eşleşen numune anahtarı:", Object.keys(aiDenemeVerileri).length);
+
+            if (konsensusVeriler.length > 0) {
+                tabloyuCiz(konsensusVeriler);
+                istatistikGuncelle();
+            }
+        }
+
+        function rawUrlDeneme(branch) {
+            let url = `https://raw.githubusercontent.com/${githubOwner}/${githubRepo}/${branch}/${githubFilePath}?t=${Date.now()}`;
+            return fetch(url, { cache: "no-store" })
+                .then(res => {
+                    if (!res.ok) throw new Error(`Raw ${branch} HTTP ${res.status}`);
+                    return res.arrayBuffer();
+                });
+        }
+
         // GitHub deposundan Excel dosyasını okuma
         function githubDepodanOku() {
-            let apiUrl = `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${githubFilePath}`;
-            
-            fetch(apiUrl)
-                .then(response => {
-                    if (!response.ok) throw new Error("GitHub deposunda dosya bulunamadı.");
-                    return response.json();
+            return rawUrlDeneme("main")
+                .catch(() => rawUrlDeneme("master"))
+                .then(buf => {
+                    excelBufferIsle(buf);
                 })
-                .then(fileData => {
-                    let binaryString = atob(fileData.content);
-                    let len = binaryString.length;
-                    let bytes = new Uint8Array(len);
-                    for (let i = 0; i < len; i++) {
-                        bytes[i] = binaryString.charCodeAt(i);
+                .catch(() => {
+                    let apiUrl = `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${githubFilePath}?t=${Date.now()}`;
+                    let token = localStorage.getItem("github_pat_token");
+                    let headers = { "Accept": "application/vnd.github+json" };
+                    if (token) {
+                        headers["Authorization"] = `Bearer ${token}`;
                     }
-                    
-                    let workbook = XLSX.read(bytes.buffer, { type: 'array' });
-                    let firstSheetName = workbook.SheetNames[0];
-                    let worksheet = workbook.Sheets[firstSheetName];
-                    let jsonRows = XLSX.utils.sheet_to_json(worksheet);
 
-                    aiDenemeVerileri = {};
-                    jsonRows.forEach(row => {
-                        let numuneNo = String(row["Numune No"] || "").trim();
-                        if (numuneNo) {
-                            aiDenemeVerileri[numuneNo] = [
-                                { teshis: row["YZ Teşhis 1"] || "", ilac: row["YZ İlaç 1"] || "" },
-                                { teshis: row["YZ Teşhis 2"] || "", ilac: row["YZ İlaç 2"] || "" },
-                                { teshis: row["YZ Teşhis 3"] || "", ilac: row["YZ İlaç 3"] || "" },
-                                { teshis: row["YZ Teşhis 4"] || "", ilac: row["YZ İlaç 4"] || "" },
-                                { teshis: row["YZ Teşhis 5"] || "", ilac: row["YZ İlaç 5"] || "" }
-                            ];
-                        }
-                    });
-
-                    if (konsensusVeriler.length > 0) {
-                        tabloyuCiz(konsensusVeriler);
-                        istatistikGuncelle();
-                    }
-                    console.log("GitHub deposundan Excel verileri başarıyla okundu.");
-                })
-                .catch(err => {
-                    console.log("Bilgi: GitHub deposunda henüz dosya yok veya erişilemedi.");
+                    return fetch(apiUrl, { cache: "no-store", headers: headers })
+                        .then(response => {
+                            if (!response.ok) throw new Error(`GitHub API yanıtı: ${response.status}`);
+                            return response.json();
+                        })
+                        .then(fileData => {
+                            if (fileData.content && fileData.content.trim() !== "") {
+                                let cleanBase64 = fileData.content.replace(/[\r\n]+/g, "");
+                                let binaryString = atob(cleanBase64);
+                                let len = binaryString.length;
+                                let bytes = new Uint8Array(len);
+                                for (let i = 0; i < len; i++) {
+                                    bytes[i] = binaryString.charCodeAt(i);
+                                }
+                                excelBufferIsle(bytes.buffer);
+                            } else if (fileData.download_url) {
+                                let rawUrl = `${fileData.download_url}${fileData.download_url.includes("?") ? "&" : "?"}t=${Date.now()}`;
+                                return fetch(rawUrl, { cache: "no-store" })
+                                    .then(res => {
+                                        if (!res.ok) throw new Error(`Dosya indirme yanıtı: ${res.status}`);
+                                        return res.arrayBuffer();
+                                    })
+                                    .then(buf => {
+                                        excelBufferIsle(buf);
+                                    });
+                            } else {
+                                throw new Error("Dosya içeriği ve indirme bağlantısı bulunamadı.");
+                            }
+                        })
+                        .catch(err => {
+                            console.error("GitHub okuma hatası:", err);
+                        });
                 });
         }
 
@@ -370,7 +457,7 @@
 
             let excelVeriSatirlari = [];
             konsensusVeriler.forEach(item => {
-                let trials = aiDenemeVerileri[item.numuneNo] || [];
+                let trials = aiDenemeVerileri[item.numuneNo] || aiDenemeVerileri[normalizeNumuneKey(item.numuneNo)] || [];
                 let dogruSayisi = 0;
                 let dolu = 0;
 
@@ -552,9 +639,11 @@
 
         function bitirVeriHazirlik() {
             konsensusVeriler.sort((a, b) => (parseInt(a.numuneNo) || 0) - (parseInt(b.numuneNo) || 0));
-            githubDepodanOku();
             tabloyuCiz(konsensusVeriler);
             istatistikGuncelle();
+            if (!githubYuklendi) {
+                githubDepodanOku();
+            }
         }
 
         function bulGorselUzantisi(numuneId, callback) {
@@ -584,7 +673,7 @@
 
             veriListesi.forEach((item, index) => {
                 let formatliNumara = String(item.numuneNo).padStart(3, '0');
-                let savedTrials = aiDenemeVerileri[item.numuneNo] || [
+                let savedTrials = aiDenemeVerileri[item.numuneNo] || aiDenemeVerileri[normalizeNumuneKey(item.numuneNo)] || [
                     { teshis: "", ilac: "" },
                     { teshis: "", ilac: "" },
                     { teshis: "", ilac: "" },
@@ -793,7 +882,7 @@
                     classMetrics[patojenAdi] = { tp: 0, fp: 0, fn: 0 };
                 }
 
-                let trials = aiDenemeVerileri[item.numuneNo];
+                let trials = aiDenemeVerileri[item.numuneNo] || aiDenemeVerileri[normalizeNumuneKey(item.numuneNo)];
                 if (trials) {
                     let dolu = trials.filter(t => t.teshis && t.teshis.trim() !== "").length;
                     if (dolu > 0) {
@@ -888,7 +977,7 @@
             anahtarlar.forEach(hastalik => {
                 let veri = istatistikler[hastalik];
                 let oran = veri.toplam > 0 ? Math.round((veri.dogru / veri.toplam) * 100) : 0;
-                let renk = oran >= 80 ? 'bg-success' : (oran >= 50 ? 'g-warning' : 'bg-danger');
+                let renk = oran >= 80 ? 'bg-success' : (oran >= 50 ? 'bg-warning' : 'bg-danger');
 
                 let toplamYapilacak = (veri.numuneSayisi || 0) * 5;
                 let yapilanDeneme = veri.toplam || 0;
